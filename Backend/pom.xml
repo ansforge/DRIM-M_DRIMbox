@@ -40,7 +40,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.13.3.Final</quarkus.platform.version>
     <surefire-plugin.version>3.0.0-M5</surefire-plugin.version>
-    <htmlunit.version>2.36.0</htmlunit.version>
+    <htmlunit.version>2.37.0</htmlunit.version>
   </properties>
   <repositories>
     <repository>

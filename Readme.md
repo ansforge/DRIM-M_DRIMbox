@@ -176,7 +176,7 @@ Cette fonction retourne notre cookie s'il est présent dans le header de chaque 
 Les certificats doivent être placés dans `Backend\src\main\resources\dmp` :
 
 - `auth.p12` le certificat d'authentification
-- `sign.p12` le certificat de signature du VIHF
+- `signature.p12` le certificat de signature du VIHF
 
 Vos certificats doivent être générés avec le type `ORG`. Les certificats associés à un personnel de santé (`PS`) ne marcheront pas.
 

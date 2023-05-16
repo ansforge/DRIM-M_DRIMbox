@@ -149,7 +149,7 @@
           <button title="Visualiser" (click)="documentsService.openPdf(el)" class="material-symbols-outlined dark">preview</button>
         </td>
         <td class="buttonHide">
-          <button title="Visualiser" *ngIf="el.refKos.length != 0" (click)="documentsService.goToViewer(el.retrieveURL)" class="material-symbols-outlined dark">remove_red_eye</button>
+          <button title="Visualiser" *ngIf="el.refKos.length != 0" (click)="documentsService.goToViewer(el.retrieveURL, el.refKos[0].kos.sopInstance)" class="material-symbols-outlined dark">remove_red_eye</button>
         </td>
         <td class="buttonHide">
           <button title="Importer" *ngIf="el.refKos.length != 0" (click)="documentsService.openFormStudy(el)" class="material-symbols-outlined dark">cloud_download</button>
@@ -166,7 +166,7 @@
                   <td>{{ serie.serieModalite }}</td>
 
                   <td class="buttonHide" style="color:#FFF">
-                    <button title="Visualiser" (click)="documentsService.goToViewer(serie.retrieveURL)" class="material-symbols-outlined dark">remove_red_eye</button>
+                    <button title="Visualiser" (click)="documentsService.goToViewer(serie.retrieveURL, el.refKos[0].kos.sopInstance)" class="material-symbols-outlined dark">remove_red_eye</button>
                   </td>
                   <td class="buttonHide" style="color:#FFF">
                     <button title="Importer" (click)="documentsService.openFormSerie(serie)" class="material-symbols-outlined dark">cloud_download</button>
@@ -197,7 +197,7 @@
                     {{study.kos.region}}
                   </td>
                   <td class="buttonHide">
-                    <button title="Visualiser" (click)="documentsService.goToViewer(study.kos.retrieveURL)" class="material-symbols-outlined dark">remove_red_eye</button>
+                    <button title="Visualiser" (click)="documentsService.goToViewer(study.kos.retrieveURL, study.kos.sopInstance)" class="material-symbols-outlined dark">remove_red_eye</button>
                   </td>
                   <td class="buttonHide">
                     <button title="Importer" *ngIf="study.kos.refKos !== -1" (click)="documentsService.openFormStudy(study.kos)" class="material-symbols-outlined dark">cloud_download</button>
@@ -213,7 +213,7 @@
                             <td>{{ serie.serieModalite }}</td>
 
                             <td class="buttonHide" style="color:#FFF">
-                              <button title="Visualiser" (click)="documentsService.goToViewer(serie.retrieveURL)" class="material-symbols-outlined dark">remove_red_eye</button>
+                              <button title="Visualiser" (click)="documentsService.goToViewer(serie.retrieveURL,study.kos.sopInstance)" class="material-symbols-outlined dark">remove_red_eye</button>
                             </td>
                             <td class="buttonHide" style="color:#FFF">
                               <button title="Importer" (click)="documentsService.openFormSerie(serie)" class="material-symbols-outlined dark">cloud_download</button>

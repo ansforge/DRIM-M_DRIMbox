@@ -32,8 +32,10 @@ import static com.bcom.drimbox.utils.PrefixConstants.METADATA_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.SERIES_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.STUDIES_PREFIX;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -50,14 +52,22 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.UriInfo;
 
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Tag;
+import org.dcm4che3.io.DicomInputStream;
+import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.RestResponse;
 
+import com.bcom.drimbox.dmp.database.DatabaseManager;
+import com.bcom.drimbox.dmp.database.SourceEntity;
 import com.bcom.drimbox.pacs.CStoreSCP;
 import com.bcom.drimbox.psc.ProSanteConnect;
 import com.bcom.drimbox.utils.RequestHelper;
 
 import io.quarkus.logging.Log;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
 
 
@@ -81,6 +91,9 @@ public class DRIMboxSourceAPI {
 	@Inject
 	CStoreSCP cstoreSCP;
 
+	@Inject
+	DatabaseManager databaseManager;
+
 	/**
 	 * Bearer token that is in the request. It will be verified with the introspection mechanism of prosanteconnect
 	 */
@@ -94,6 +107,7 @@ public class DRIMboxSourceAPI {
 
 
 	@GET
+	@Blocking
 	@Path("/studies/{studyUID}/series/{seriesUID}")
 	@Produces("multipart/related;start=\\\"<1@resteasy-multipart>\\\";transfer-syntax=1.2.840.10008.1.2.1;type=\\\"application/dicom\\\"; boundary=myBoundary")
 	public Multi<byte[]> drimboxMultipartWado(String studyUID, String seriesUID, @Context HttpHeaders headers) {
@@ -113,11 +127,39 @@ public class DRIMboxSourceAPI {
 				Map.Entry::getValue, 
 				(oldValue, newValue) -> oldValue, LinkedHashMap::new));
 		List<String> transferSyntaxes = new ArrayList<>(tsMap.keySet());
-		
 		String boundary = headers.getRequestHeaders().get("Accept").get(0).split("boundary=")[1];
 		cstoreSCP.setBoundary(boundary);
 
+		String sopInstanceUID = headers.getRequestHeader("KOS-SOPInstanceUID").get(0);
+
+		if(!verifySop(sopInstanceUID, studyUID))  {
+			Log.error("Verify SOP returned false");
+			return Multi.createFrom().empty();
+		}
+
 		return requestHelper.fileRequestCMove(url, transferSyntaxes);
+	}
+
+	private boolean verifySop(String sopInstanceUID, String studyUID) {
+		SourceEntity entity = this.databaseManager.getEntity(studyUID);
+		if(entity == null) {
+			Log.info("No data found in database");
+			return false;
+		}
+
+		InputStream targetStream = new ByteArrayInputStream(entity.rawKOS);
+		try (DicomInputStream dis = new DicomInputStream(targetStream)) {
+			dis.setIncludeBulkData(IncludeBulkData.URI);
+			Attributes dataset = dis.readDataset();
+			String sopInstanceUIDLocal = dataset.getString(Tag.SOPInstanceUID);
+
+			return sopInstanceUIDLocal.equals(sopInstanceUID);
+		} catch (Exception e) {
+			Log.error("Error in verifySop");
+			Log.error(e.getMessage());
+		}
+
+		return false;
 	}
 
 	@GET
@@ -148,23 +190,46 @@ public class DRIMboxSourceAPI {
 	}
 
 
+	private HttpURLConnection getPacsConnection(String pacsUrl) throws RequestErrorException  {
+		try {
+			final URL url = new URL(pacsUrl);
 
-	private HttpURLConnection getPacsConnection(String pacsUrl) throws Exception {
-		final URL url = new URL(pacsUrl);
+			if (!checkAuthorisation()) {
+				throw new RequestErrorException("Authentication failure", 401);
+			}
 
-		if (!checkAuthorisation()) {
-			throw new Exception("Authentication failure");
+			final int timeoutValueMS = 60000;
+			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			connection.setConnectTimeout(timeoutValueMS);
+			connection.setReadTimeout(timeoutValueMS);
+			connection.setRequestMethod("GET");
+			int responseCode = connection.getResponseCode();
+
+			switch(responseCode) {
+				case 404:
+					throw new RequestErrorException("Cannot find resource", responseCode);
+				case 504:
+					throw new RequestErrorException("Pacs didn't respond in time.", responseCode);
+				case 200:
+				case 206:
+					break;
+				default:
+					throw new RequestErrorException("Pacs request failed.", responseCode);
+			}
+
+			return connection;
+		} catch (ProtocolException e) {
+			throw new RequestErrorException("ProtocolException : " + e.getMessage(), 500);
+		} catch (MalformedURLException e) {
+			throw new RequestErrorException("MalformedURLException : " + e.getMessage(), 500);
+		} catch (SocketTimeoutException e) {
+			throw new RequestErrorException("Pacs didn't respond in time. " + e.getMessage(), 504);
+		} catch (ConnectException e) {
+			Log.error(String.format("Pacs at %s is not responding.", pacsUrl));
+			throw new RequestErrorException("Pacs is not responding. " + e.getMessage(), 502);
+		} catch (IOException e) {
+			throw new RequestErrorException("IOException : " + e.getMessage(), 500);
 		}
-
-		final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-		connection.setRequestMethod("GET");
-		int responseCode = connection.getResponseCode();
-
-		if (responseCode != 200 && responseCode != 206)
-			throw new Exception("Pacs request failed with error code " + responseCode);
-
-
-		return connection;
 	}
 
 	private boolean checkAuthorisation()  {

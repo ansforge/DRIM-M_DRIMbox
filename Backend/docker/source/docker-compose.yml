@@ -12,9 +12,21 @@ services:
       - 8090:8090
     environment:
       DRIMBOX_MODE: source
-      JAVA_OPTIONS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dquarkus.http.port=8082 -Dpacs.baseUrl=http://174.20.0.12:8080"
+      JAVA_OPTIONS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dquarkus.http.port=8082 -Dpacs.baseUrl=http://174.20.0.12:8080 -Dquarkus.datasource.jdbc.url=jdbc:postgresql://174.20.0.14:5432/postgres"
     networks:
-      - pacs_network
+      pacs_network:
+        ipv4_address: 174.20.0.13
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pswd
+      POSTGRES_DB: postgres
+    networks:
+      pacs_network:
+        ipv4_address: 174.20.0.14
+
 
   # Sample DCM4CHE
   # Default address : http://localhost:8012/dcm4chee-arc/ui2/

@@ -51,6 +51,7 @@ export class DocumentsService {
     retrieveURL: '',
     accessionNumber: '',
     mimeType: '',
+    sopInstance: '',
     series: [{
       serieDescription: '',
       nbImages: '',
@@ -73,6 +74,7 @@ export class DocumentsService {
       retrieveURL: '',
       display: false,
       accessionNumber: '',
+      sopInstance: '',
       refKos: [{
         kos: this.kosDocs
       }],
@@ -237,7 +239,7 @@ export class DocumentsService {
    * @param response 3_1 request response from dmp
    */
   fillInfoPatient(response) {
-    this.infoPatient.dateNaissance = "19/11/1963";
+    this.infoPatient.dateNaissance = "01/01/1950";
     this.infoPatient.nom = response.split("sourcePatientInfo")[1].split("PID-5|")[1].split("^")[0];
     this.infoPatient.prenom = response.split("sourcePatientInfo")[1].split("PID-5|")[1].split("^")[1];
     this.infoPatient.sexe = response.split("sourcePatientInfo")[1].split("PID-8|")[1].split("<")[0];
@@ -252,7 +254,7 @@ export class DocumentsService {
     this.kosDocs.forEach(function (kosDoc) {
       if (kosDoc.accessionNumber === cda.accessionNumber) {
         cda.refKos.push({ kos: kosDoc });
-
+        cda.sopInstance = kosDoc.sopInstance;
         kosDoc.modalite.split("et ").forEach(function (modal) {
           if (cda.modalite.search(modal) === -1) {
             cda.modalite += "et " + modal;
@@ -280,6 +282,10 @@ export class DocumentsService {
     if (metadataDoc.search("<ns4:Name>") !== -1) {
       descriptionValue = metadataDoc.split("<ns4:Name>")[1].split("value=\"")[1].split("\"")[0];
     }
+    let sopInstance = "";
+
+    sopInstance = metadataDoc.split("urn:uuid:2e82c1f6-a085-4c72-9da3-8640a32e42ab")[1].split("value=\"")[1].split("\"")[0];
+
     const dateExamValue = metadataDoc.split("creationTime")[1].split("Value>")[1].split("<")[0];
     const access = metadataDoc.split("referenceIdList")[1].split("</ns4:ValueList>")[0].split("<ns4:Value>");
     const retrieveUrl = metadataDoc.split("uniqueId")[0].split("referenceIdList")[1].split("<ns4:Value>");
@@ -310,6 +316,7 @@ export class DocumentsService {
         retrieveURL: retri,
         display: false,
         accessionNumber: accessi,
+        sopInstance: '',
         refKos: [{
           kos: null
         }],
@@ -353,6 +360,7 @@ export class DocumentsService {
         retrieveURL: retri,
         accessionNumber: accessi,
         mimeType: mimeTypeValue,
+        sopInstance: sopInstance,
         series: [{
           serieDescription: '',
           nbImages: '',
@@ -447,6 +455,7 @@ export class DocumentsService {
       if (type === "serie") {
         const desc = dataSet.string('x0040a160');
         doc.description = dataSet.string('x00081030');
+        doc.sopInstance = dataSet.string('x00080018');
         const dataSetSeries = dataSet.elements['x0040a375'].items[0].dataSet.elements['x00081115'].items;
         // Fill serie infos with kos
         dataSetSeries.forEach(function (serie) {
@@ -511,18 +520,18 @@ export class DocumentsService {
    * @param retrieveURL of the study/series
    * @param doc from the study/series
    */
-  goToViewer(retrieveURL) {
+  goToViewer(retrieveURL, sopInstance) {
     // Need this to get auth ohif beforehand (transmit the cookie value to the backend)
     // TODO : Change this and pass the cookie to the OHIF metadata (see backend for details)
     let urlRetrieve = retrieveURL;
-
-    const drimboxConso = "localhost:8081";
-    const drimboxSource = "localhost:8082";
+    console.log("527 : " + sopInstance);
+    const drimboxConso = "localhost:8082";
+    const drimboxSource = "172.17.185.143:8083";
     const viewerURL = "localhost:3000";
     if (retrieveURL.includes("series")) {
       urlRetrieve = retrieveURL.split("/studies/")[1].split("/series")[0];
     }
-    window.open(`http://${viewerURL}/viewer?url=http://${drimboxConso}/ohifmetadata/${drimboxSource}&studyInstanceUIDs=${urlRetrieve}`, '_blank');
+    window.open(`http://${viewerURL}/viewer/dicomjson?url=http://${drimboxConso}/ohifv3metadata/${drimboxSource}/${urlRetrieve}/${sopInstance}`, '_blank');
     //window.open(`http://${viewerURL}/viewer?url=${urlRetrieve}`, '_blank');
   }
 

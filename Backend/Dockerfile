@@ -20,7 +20,7 @@ RUN curl https://repo1.maven.org/maven2/io/fabric8/run-java-sh/${RUN_JAVA_VERSIO
 
 ## Stage 2 : create the docker final image
 #FROM registry.access.redhat.com/ubi8/openjdk-11:1.11
-FROM eclipse-temurin:11-jre-alpine
+FROM eclipse-temurin:11-jre
 
 ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en'
 
@@ -28,6 +28,8 @@ COPY --from=downloader --chown=185 /tmp/run-java.sh /deployments/run-java.sh
 RUN chmod 540 /deployments/run-java.sh
 
 # We make four distinct layers so if there are application changes the library layers can be re-used
+# Open CV needs
+COPY --from=build --chown=185 code/target/lib/linux-x86-64/ /lib/
 COPY --from=build --chown=185 code/target/quarkus-app/lib/ /deployments/lib/
 COPY --from=build --chown=185 code/target/quarkus-app/*.jar /deployments/
 COPY --from=build --chown=185 code/target/quarkus-app/app/ /deployments/app/

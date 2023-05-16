@@ -29,20 +29,22 @@ package com.bcom.drimbox.pacs;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.ws.rs.NotFoundException;
 
 import com.bcom.drimbox.api.DRIMboxConsoAPI;
 import com.bcom.drimbox.utils.PrefixConstants;
 
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
 import org.apache.http.HttpHeaders;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -77,10 +79,14 @@ public class PacsCache {
 	
 	private final Vertx vertx;
 
+
 	@Inject
 	public PacsCache(Vertx vertx) {
 		this.vertx = vertx;
 	}
+
+
+	public static String getEventBusID(String studyUID, String seriesUID) { return studyUID + "/" + seriesUID; }
 
 
 	/**
@@ -93,13 +99,16 @@ public class PacsCache {
 	 * @param accessToken PCS access token that will be verified
 	 * @param studyUID Study UID
 	 * @param seriesUID Series UID
+	 *
+	 * @return Return a future that contains the # of instance added to the cache. It might be 0 if the data are already
+	 * in the cache. It will raise an RequestErrorException if something goes wrong.
 	 */
-	public void addNewEntry(String drimboxSourceURL, String accessToken, String studyUID, String seriesUID) {
+	public io.vertx.core.Future<Integer> addNewEntry(String drimboxSourceURL, String accessToken, String studyUID, String seriesUID, String sopInstanceUID) {
 		// Do not rebuild if already here
 		if (dicomCache.containsKey(studyUID) && dicomCache.get(studyUID).containsKey(seriesUID))
-			return;
+			return io.vertx.core.Future.succeededFuture(0);
 
-		vertx.executeBlocking(promise -> {
+		io.vertx.core.Future<Integer> future = vertx.executeBlocking(promise -> {
 			Log.info("Starting cache build...");
 			Log.info("Starting WADO (series) request : " + seriesUID);
 
@@ -112,21 +121,65 @@ public class PacsCache {
 			else {
 				dicomCache.put(studyUID, map);
 			}
-			buildEntry(drimboxSourceURL, accessToken, studyUID, seriesUID);
 
-			promise.complete();
-		}, res -> 
-		Log.info("Cache built")
-				);
+			try {
+				buildEntry(drimboxSourceURL, accessToken, studyUID, seriesUID, sopInstanceUID);
+				// Since something was added we set the # of added items
+				promise.complete( dicomCache.get(studyUID).get(seriesUID).dicomFiles.size() );
+			} catch (RequestErrorException e) {
+				promise.fail(e);
+			}
+		});
+
+		future.onComplete(status -> {
+			if (status.succeeded()) {
+				Log.info("Cache created.");
+			}
+		});
+
+		future.onFailure(e -> {
+			Log.error("Cache creation aborted due to an error : " + e.getMessage());
+			Log.error(String.format("Removing %s / %s from cache", studyUID, seriesUID));
+			// Remove cache since something went wrong
+			removeFromCache(studyUID, seriesUID);
+		});
+
+		return future;
+	}
+
+	private void removeFromCache(String studyUID, String seriesUID) {
+		dicomCache.get(studyUID).remove(seriesUID);
+		if (dicomCache.get(studyUID).isEmpty()) {
+			dicomCache.remove(studyUID);
+		}
 	}
 
 	// TODO : handle study/series not present
 
 	private DicomCacheInstance getCacheInstance(String studyUID, String seriesUID) {
+		if (!dicomCache.containsKey(studyUID))
+			return null;
+
 		return dicomCache.get(studyUID).get(seriesUID);
 	}
 
+	/**
+	 * Return first instance number of studyUID/seriesUID
+	 *
+	 * This is used for retrieved metadata in OHIFv3 and will be gone as soon as we find another working solution
+	 *
+	 * @param studyUID Study UID
+	 * @param seriesUID Series UID
+	 * @return first instance number of studyUID/seriesUID or null if not present
+	 */
+	public String getFirstInstanceNumber(String studyUID, String seriesUID) {
+		if (!dicomCache.containsKey(studyUID) || !dicomCache.get(studyUID).containsKey(seriesUID) )
+			return null;
 
+		return dicomCache.get(studyUID).get(seriesUID).dicomFiles.keySet().stream().findFirst().get();
+	}
+
+	Map<String, CompletableFuture<byte[]>> waitingFutures = new HashMap<>();
 	/**
 	 * Get dicom file in cache.
 	 *
@@ -140,11 +193,14 @@ public class PacsCache {
 	 * @return Dicom file corresponding to the UIDs.
 	 * It may not be available right away as the cache can take some time to be built.
 	 */
-	Map<String, CompletableFuture<byte[]>> waitingFutures = new HashMap<>();
 	public Future<byte[]> getDicomFile(String studyUID, String seriesUID, String instanceUID) {
 		CompletableFuture<byte[]> completableFuture = new CompletableFuture<>();
 
 		DicomCacheInstance instance = getCacheInstance(studyUID, seriesUID);
+		if (instance == null) {
+			Log.error(String.format("No instance found for %s / %s / %s ", studyUID, seriesUID, instanceUID));
+			return CompletableFuture.failedFuture(new NotFoundException());
+		}
 
 		if (instance.dicomFiles.containsKey(instanceUID)) {
 			//Log.info("[CACHE] Available " + instanceUID);
@@ -157,10 +213,45 @@ public class PacsCache {
 		return completableFuture;
 	}
 
+	/**
+	 * Checks if some instance UID are still waiting and mark them a not found. This will not affect valid cached images.
+	 * It also set all instanceUID that are not already to an empty image marking them as not found.
+	 *
+	 * This function is useful if the cache entry number is != from the KOS entry number. It means that all images
+	 * in the KOS that are not in the cache are not in the pacs and we need to mark them a "not found" (empty image)
+	 */
+	public void markInstanceAsNotFound(String studyUID, String seriesUID, List<String> instanceUIDs) {
+		// Check if some images are already pending
+		for (String instanceUID : instanceUIDs) {
+			if (waitingFutures.containsKey(instanceUID)) {
+				waitingFutures.get(instanceUID).complete(new byte[0]);
+			}
+		}
+
+		// For all images that are in the instanceUIDs but not in valid images, we make them empty so we can return an
+		// error code.
+		if (dicomCache.containsKey(studyUID) && dicomCache.get(studyUID).containsKey(seriesUID)) {
+			var validImages = dicomCache.get(studyUID).get(seriesUID).dicomFiles;
+
+			Set<String> instanceSet = new HashSet<>(instanceUIDs);
+			instanceSet.removeAll( validImages.keySet());
+
+			for(String instanceUID : instanceSet) {
+				validImages.put(instanceUID, new byte[0]);
+			}
+		}
+	}
+
+
 	private interface BoundaryFunc { String getBoundary(String contentType); }
-	private void buildEntry(String drimboxSourceURL, String accessToken, String studyUID, String seriesUID) {
-		String serviceURL = DRIMboxConsoAPI.HTTP_PROTOCOL + drimboxSourceURL + "/" + PrefixConstants.DRIMBOX_PREFIX + "/" + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + seriesUID;
-		//String serviceURL = "http://localhost:8081/dcm4chee-arc/aets/AS_RECEIVED/rs"  + "/" + STUDIES_PREFIX + "/" + studyUID + "/series/" + seriesUID;
+	private void buildEntry(String drimboxSourceURL, String accessToken, String studyUID, String seriesUID, String sopInstanceUID) throws RequestErrorException {
+		String serviceURL = drimboxSourceURL + "/" + PrefixConstants.DRIMBOX_PREFIX + "/" + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + seriesUID;
+
+		// TODO : Compatibility with OHIFv2 and OHIFv3 without KOS (need to remove this asap)
+		if (!drimboxSourceURL.startsWith("http")) {
+			serviceURL = DRIMboxConsoAPI.HTTP_PROTOCOL + serviceURL;
+		}
+
 		try {
 			Map<String, String> transferSyntaxes = Map.of(UID.JPEGBaseline8Bit, "0.9",
 					UID.JPEGExtended12Bit, "0.9",
@@ -174,11 +265,12 @@ public class PacsCache {
 					UID.ExplicitVRLittleEndian, "0.4");
 			final URL url = new URL(serviceURL);
 			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-		    for (Map.Entry<String, String> entry : transferSyntaxes.entrySet()) {
-				connection.addRequestProperty(HttpHeaders.ACCEPT, "multipart/related; type=\"application/dicom\";transfer-syntax="+entry.getKey()+";q="+entry.getValue()+";boundary=" + BOUNDARY);
-		    }
+
+			for (Map.Entry<String, String> entry : transferSyntaxes.entrySet()) {
+				connection.addRequestProperty(HttpHeaders.ACCEPT, "multipart/related; type=\"application/dicom\";transfer-syntax=" + entry.getKey() + ";q=" + entry.getValue() + ";boundary=" + BOUNDARY);
+			}
 			connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
-			connection.setRequestProperty("KOS-SOPInstanceUID", seriesUID);
+			connection.setRequestProperty("KOS-SOPInstanceUID", sopInstanceUID);
 
 			BoundaryFunc boundaryManager = (String contentType) -> {
 				String[] respContentTypeParams = contentType.split(";");
@@ -191,13 +283,30 @@ public class PacsCache {
 				return null;
 			};
 
+			// Trigger exception if something went wrong
+			switch(connection.getResponseCode()) {
+				case 200:
+				case 206:
+					break;
+				case 404:
+					throw new RequestErrorException("Series (or study) cannot be found ", 404);
+				default:
+					throw new RequestErrorException("Unknown error", connection.getResponseCode());
+
+			}
+
 			String boundary = boundaryManager.getBoundary(connection.getContentType());
 			if (boundary == null) {
 				Log.fatal("Invalid response. Unpacking of parts not possible.");
-				throw new RuntimeException();
+				throw new RequestErrorException("Multipart boundary cannot be determined", 500);
 			}
 
 			DicomCacheInstance dc = getCacheInstance(studyUID, seriesUID);
+
+			if (dc == null) {
+				Log.fatal("Can't get DicomCacheInstance for specified study and series UID");
+				throw new RequestErrorException("Internal server error", 500);
+			}
 
 			new MultipartParser(boundary).parse(new BufferedInputStream(connection.getInputStream()), (partNumber, multipartInputStream) -> {
 				Map<String, List<String>> headerParams = multipartInputStream.readHeaderParams();
@@ -208,24 +317,49 @@ public class PacsCache {
 					Attributes dataSet = dis.readDataset();
 					String instanceUID = dataSet.getString(Tag.SOPInstanceUID);
 
-					//Log.info("[CACHE] Received file " + instanceUID);
+					Log.info("[CACHE] Received file " + instanceUID);
 					dc.dicomFiles.put(instanceUID, rawDicomFile);
 
 					if (waitingFutures.containsKey(instanceUID)) {
-						//Log.info("[CACHE] Publish file " + instanceUID);
+						Log.info("[CACHE] Publish file " + instanceUID);
 						waitingFutures.get(instanceUID).complete(rawDicomFile);
 						waitingFutures.remove(instanceUID);
 					}
+
+					// Say that instance is now available
+					// This is used to populate metadata for OHIF
+					// Todo : see if we only need to trigger this once or if performance is ok like that
+					vertx.eventBus().publish(getEventBusID(studyUID, seriesUID), instanceUID);
 
 				} catch (Exception e) {
 					Log.fatal("Failed to process Part #" + partNumber + headerParams, e);
 				}
 			});
 
+			if (dc.dicomFiles.isEmpty()) {
+				Log.error("C-MOVE data is empty.");
+				throw new RequestErrorException("C-MOVE was empty", 404);
+			}
+
 			dc.complete = true;
 			Log.info("[CACHE] Complete");
+		} catch (ConnectException e) {
+			Log.error(String.format("DRIMbox at %s is not responding.", serviceURL));
+			Log.error(String.format("Error : %s", e.getMessage()));
+
+			throw new RequestErrorException("DRIMbox source is not responding", 502);
+		} catch (EOFException e) {
+			// This is mainly bc the SOPInstance UID was not found in the database
+			// We don't have any rest code for Multi<> types yet, so we need to do this workaround
+			// + special code for this error since it's not a specific 404
+			throw new RequestErrorException("SOPInstance not found in database", 1404);
+		// Allow to throw RequestErrorException in the body
+		} catch (RequestErrorException e) {
+			throw e;
 		} catch (Exception e) {
-			throw new RuntimeException(e);
+			Log.error("Unknown error : ");
+			e.printStackTrace();
+			throw new RequestErrorException("Unknown error", 500);
 		}
 
 

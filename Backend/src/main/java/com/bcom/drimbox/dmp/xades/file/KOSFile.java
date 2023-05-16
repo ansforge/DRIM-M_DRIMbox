@@ -29,9 +29,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -45,8 +43,15 @@ public class KOSFile {
 
 
 	String studyUID;
+
+	String patientINS;
+
+	public static class SeriesInfo {
+		public String retrieveURL;
+		public List<String> instancesUID = new ArrayList<>();
+	}
 	// StudyID => { SeriesID => RetrieveURL, SeriesID => RetrieveURL,... }
-	Map<String, String> seriesURL = new HashMap<>();
+	Map<String, SeriesInfo> seriesURL = new HashMap<>();
 
 	// This is used for testing purpose only for now.
 	@Deprecated
@@ -73,13 +78,17 @@ public class KOSFile {
 		try {
 			Attributes attributes = dis.readDataset();
 
+			patientINS = attributes.getString(Tag.PatientID);
+
 			studyUID = attributes.getString(Tag.StudyInstanceUID);
 			//            CurrentRequestedProcedureEvidenceSequence :                               // allStudies
 			//              - Item #0                                                               // currentItem
 			//                  - ReferencedSeriesSequence :                                        // currentSerieSeq
 			//                      - Item #0                                                       // currentSerieInfo
 			//                          - RetrieveURL
-			//                          - ReferencedSOPSequence (not used, contains instance info)
+			//                          - ReferencedSOPSequence
+			//								- ReferencedSOPClassUID : "1.2.840.10008.5.1.4.1.1.2" [ CT Image Storage ]
+			//								- ReferencedSOPInstanceUID : "1.2.276.0.7230010.3.1.4.8323329.4426.1666943459.930423"
 			//                          - SeriesInstanceUID
 			Sequence allStudies = attributes.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
 			if (allStudies == null) {
@@ -101,9 +110,23 @@ public class KOSFile {
 			}
 
 			for (Attributes currentSerieInfo : currentSerieSeq) {
+				SeriesInfo seriesInfo = new SeriesInfo();
+
+				Sequence instanceUIDSequence = currentSerieInfo.getSequence(Tag.ReferencedSOPSequence);
+				for (Attributes instanceUIDObject : instanceUIDSequence) {
+					String currentInstanceUID = instanceUIDObject.getString(Tag.ReferencedSOPInstanceUID);
+					if (currentInstanceUID == null) {
+						Log.warn("Can't get ReferencedSOPInstanceUID in ReferencedSOPSequence.");
+					} else {
+						seriesInfo.instancesUID.add(currentInstanceUID);
+					}
+				}
+
+				seriesInfo.retrieveURL = currentSerieInfo.getString(Tag.RetrieveURL);
+
 				seriesURL.put(
 						currentSerieInfo.getString(Tag.SeriesInstanceUID),
-						currentSerieInfo.getString(Tag.RetrieveURL)
+						seriesInfo
 				);
 			}
 
@@ -116,8 +139,15 @@ public class KOSFile {
 	public String getStudyUID() {
 		return studyUID;
 	}
+	public String getPatientINS() {
+		return patientINS;
+	}
 
-	public Map<String, String> getSeriesURL() {
+	/**
+	 * A map that contains data associated with the series in the KOS
+	 * @return { seriesUID => SeriesInfo, ... }
+	 */
+	public Map<String, SeriesInfo> getSeriesInfo() {
 		return seriesURL;
 	}
 

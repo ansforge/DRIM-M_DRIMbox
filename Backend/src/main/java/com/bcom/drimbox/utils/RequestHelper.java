@@ -39,6 +39,7 @@ import javax.inject.Singleton;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.UriInfo;
 
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
 import org.jboss.resteasy.reactive.RestResponse;
 
 import com.bcom.drimbox.pacs.CMoveSCU;
@@ -102,7 +103,7 @@ public class RequestHelper {
 		} catch (Exception e) {
 			Log.fatal("error while reading server string response");
 		}
-		return getDeniedStringResponse();
+		return getErrorStringResponse();
 	}
 
 	public RestResponse<byte[]> readFileResponse(HttpURLConnection connection) {
@@ -113,28 +114,35 @@ public class RequestHelper {
 					.build();
 		} catch (Exception e) {
 			Log.fatal("error while reading server file response");
-			return RestResponse.ResponseBuilder.ok(new byte[0]).status(401).build();
+			return RestResponse.ResponseBuilder.ok(new byte[0]).status(500).build();
 		}
 	}
 
 	/**
-	 * Convenience function that returns 401 RestResponse for String
+	 * Convenience function that returns 500 RestResponse for String
 	 */
-	public RestResponse<String> getDeniedStringResponse() {
-		return RestResponse.ResponseBuilder.ok("").status(401).build();
+	public RestResponse<String> getErrorStringResponse() {
+		return getErrorStringResponse("Internal server error", 500);
+	}
+
+	public RestResponse<String> getErrorStringResponse(String message, int code) {
+		return RestResponse.ResponseBuilder.ok(message).status(code).build();
 	}
 
 	/**
-	 * Convenience function that returns 401 RestResponse for files
+	 * Convenience function that returns 500 RestResponse for files
 	 */
 	public RestResponse<byte[]> getDeniedFileResponse() {
-		return RestResponse.ResponseBuilder.ok(new byte[0]).status(401).build();
+		return getDeniedFileResponse(500);
 	}
 
+	public RestResponse<byte[]> getDeniedFileResponse(int code) {
+		return RestResponse.ResponseBuilder.ok(new byte[0]).status(code).build();
+	}
 
 	// Todo : add String authToken
 	public interface ServiceConnection {
-		HttpURLConnection connect(String url) throws Exception ;
+		HttpURLConnection connect(String url) throws RequestErrorException;
 	}
 
 	// Todo : see if Response<> can do the work instead to avoid duplicate functions
@@ -145,9 +153,12 @@ public class RequestHelper {
 
 			connection.disconnect();
 			return response;
+		} catch (RequestErrorException e) {
+			logError("string request", pacsUrl, e.getMessage());
+			return getErrorStringResponse(e.getMessage(), e.getErrorCode());
 		} catch (Exception e) {
 			logError("string request", pacsUrl, e.getMessage());
-			return getDeniedStringResponse();
+			return getErrorStringResponse();
 		}
 	}
 

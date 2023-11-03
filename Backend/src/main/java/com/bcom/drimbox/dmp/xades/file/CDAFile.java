@@ -61,6 +61,7 @@ public class CDAFile {
 	private String accessionNumberRoot;
 	private String accessionNumberExtension;
 	private XadesType.ClassificationCode confidentiality; 
+	private String ipp;
 
 	public String getAuthorID() {
 		return authorID;
@@ -153,7 +154,6 @@ public class CDAFile {
 		return (Element) xpathRequest(xpath).get(0);
 	}
 
-
 	private XadesType.ClassificationCode getClassificationCode(String xpath) {
 		Element n = getElement(xpath);
 		return new XadesType.ClassificationCode(n.getAttributeValue("code"), n.getAttributeValue("displayName"), n.getAttributeValue("codeSystem"));
@@ -193,6 +193,9 @@ public class CDAFile {
 			var patientIDAttr = getElement("//recordTarget/patientRole/id");
 			sourcePatientID = patientIDAttr.getAttributeValue("extension") + "^^^&" + patientIDAttr.getAttributeValue("root") + "&ISO^PI";
 			patientID = patientIDAttr.getAttributeValue("extension") + "^^^&" + patientIDAttr.getAttributeValue("root") + "&ISO^NH";
+			
+			var patientIPPAttr = getElement("//recordTarget/patientRole/id[2]");
+			ipp = patientIPPAttr.getAttributeValue("extension");
 			
 			var patientAgeAttr = getElement("//recordTarget/patientRole/patient/birthTime");
 			var patientSexAttr = getElement("//recordTarget/patientRole/patient/administrativeGenderCode");
@@ -331,5 +334,13 @@ public class CDAFile {
 
 	public void setAccessionNumberExtension(String accessionNumberExtension) {
 		this.accessionNumberExtension = accessionNumberExtension;
+	}
+
+	public String getIpp() {
+		return ipp;
+	}
+
+	public void setIpp(String ipp) {
+		this.ipp = ipp;
 	}
 }

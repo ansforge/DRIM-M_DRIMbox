@@ -1,3 +1,4 @@
 export const environment = {
-  production: true
+  production: true,
+  sourcehost: 'http://demodrim.labs.b-com.com'
 };

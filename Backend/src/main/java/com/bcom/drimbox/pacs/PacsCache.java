@@ -111,7 +111,6 @@ public class PacsCache {
 		io.vertx.core.Future<Integer> future = vertx.executeBlocking(promise -> {
 			Log.info("Starting cache build...");
 			Log.info("Starting WADO (series) request : " + seriesUID);
-
 			Map<String, DicomCacheInstance> map = new HashMap<>();
 			map.put(seriesUID, new DicomCacheInstance());
 
@@ -121,7 +120,7 @@ public class PacsCache {
 			else {
 				dicomCache.put(studyUID, map);
 			}
-
+			
 			try {
 				buildEntry(drimboxSourceURL, accessToken, studyUID, seriesUID, sopInstanceUID);
 				// Since something was added we set the # of added items
@@ -245,7 +244,7 @@ public class PacsCache {
 
 	private interface BoundaryFunc { String getBoundary(String contentType); }
 	private void buildEntry(String drimboxSourceURL, String accessToken, String studyUID, String seriesUID, String sopInstanceUID) throws RequestErrorException {
-		String serviceURL = drimboxSourceURL + "/" + PrefixConstants.DRIMBOX_PREFIX + "/" + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + seriesUID;
+		String serviceURL = drimboxSourceURL + "/" + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + seriesUID;
 
 		// TODO : Compatibility with OHIFv2 and OHIFv3 without KOS (need to remove this asap)
 		if (!drimboxSourceURL.startsWith("http")) {
@@ -263,7 +262,8 @@ public class PacsCache {
 					UID.MPEG2MPHL, "0.3",
 					UID.MPEG4HP41, "0.3",
 					UID.MPEG4HP41BD, "0.3");
-			final URL url = new URL(serviceURL);
+			final URL url = new URL("http://172.19.45.196:4200/api/source/studies/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.3.116/series/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.6.116");
+			Log.info("url : " + url);
 			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
 			for (Map.Entry<String, String> entry : transferSyntaxes.entrySet()) {
@@ -291,10 +291,13 @@ public class PacsCache {
 				case 404:
 					throw new RequestErrorException("Series (or study) cannot be found ", 404);
 				default:
-					throw new RequestErrorException("Error : " + connection.getErrorStream().readAllBytes(), connection.getResponseCode());
+				//	throw new RequestErrorException("Error : " + connection.getErrorStream().readAllBytes(), connection.getResponseCode());
+					Log.warn("ohif : " + connection.getResponseCode());
 
 			}
-
+			Log.info("content-Type : " + connection.getContentType());
+			Log.info("Response message : " + connection.getResponseMessage());
+			
 			String boundary = boundaryManager.getBoundary(connection.getContentType());
 			if (boundary == null) {
 				Log.fatal("Invalid response. Unpacking of parts not possible.");

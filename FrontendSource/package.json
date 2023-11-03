@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.conf.js",
-    "build": "ng build",
+    "build": "ng build --base-href /IHEInvokeImageDisplay --deploy-url /IHEInvokeImageDisplay/",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

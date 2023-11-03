@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.CookieParam;
@@ -46,8 +48,10 @@ import jakarta.ws.rs.core.UriBuilder;
 
 import com.bcom.drimbox.dmp.auth.WebTokenAuth;
 
+import io.quarkus.logging.Log;
 
-@Path("/parameters")
+
+@Path("/api/conso/parameters")
 @Singleton
 public class ParameterList {
 
@@ -57,10 +61,15 @@ public class ParameterList {
 	// Map of query parameters
 	private final Map<String, String> queryParams = new HashMap<>();
 
-	private String[] paramsMandatory = {"ins", "insAuthority", "lastName", "firstName", "sex", "birthDate", "birthPlace", "consent", "patientID", "patientIDIssuer"};  
+	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
+			"Patient.birthDate", "Address.district", "opposition", "patientID", "patientIDIssuer"};  
 
-	private String[] paramsAll = {"ins", "insAuthority", "lastName", "firstName", "sex", "birthDate", "birthPlace",
-			"StudyInstanceUID", "modality", "accessionNumber", "studyDate", "anatomicRegion", "situation", "consent", "patientID", "patientIDIssuer", "issuer"};  
+	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
+			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "accessionNumber", "issuer", "studyDate", "anatomicRegion", "situation", "opposition",
+			 "patientID", "patientIDIssuer"};  
+	
+	@ConfigProperty(name="conso.host")
+	String consoHost;
 
 	@Inject
 	WebTokenAuth webTokenAuth;
@@ -75,6 +84,7 @@ public class ParameterList {
 	@POST
 	@Produces(MediaType.TEXT_PLAIN)
 	public Response echo(String requestBody) throws Exception {
+		Log.info(requestBody);
 		boolean validParams = false;
 		queryParams.clear();
 		UUID uuid = UUID.randomUUID();
@@ -83,12 +93,12 @@ public class ParameterList {
 		for (String pair : pairs) {
 			String[] keyValuePair = pair.split("=");
 			if(keyValuePair.length <2) {
-				return Response.status(400).build();
+				return Response.status(400, "parameters without value : " + pair).build();
 			}
 
 			validParams = this.verifExist(keyValuePair[0]); 
 			if (!validParams) {
-				return Response.status(400).build();
+				return Response.status(400, "unknown parameter found : " + keyValuePair[0]).build();
 			}
 
 			// Adding query params in local map
@@ -100,7 +110,7 @@ public class ParameterList {
 		{  
 			validParams = this.verifMandatory(param); 
 			if (!validParams) {
-				return Response.status(400).build();
+				return Response.status(400, "missing a mandatory parameter" + param).build();
 			}
 		}  
 
@@ -114,7 +124,7 @@ public class ParameterList {
 		else
 		{
 			return Response //seeOther = 303 redirect
-					.seeOther(UriBuilder.fromUri("http://localhost:4200")
+					.seeOther(UriBuilder.fromUri(consoHost)
 							.queryParam("uuid", uuid.toString())
 							.build())//build the URL where you want to redirect
 					.build();
@@ -132,7 +142,7 @@ public class ParameterList {
 	@Path("/ins")
 	public Response retrieveINS(@QueryParam("uuid") String uuid) {
 		if (this.paramsCache.containsKey(uuid)) {
-			return Response.ok(this.paramsCache.get(uuid).get("ins")).build();
+			return Response.ok(this.paramsCache.get(uuid).get("Patient.identifier.value")).build();
 		}
 
 		else return Response.status(401).build();
@@ -146,10 +156,10 @@ public class ParameterList {
 	 */
 	@GET
 	@Produces(MediaType.TEXT_PLAIN)
-	@Path("/consent")
+	@Path("/opposition")
 	public Response retrieveConsent(@QueryParam("uuid") String uuid) {
 		if (this.paramsCache.containsKey(uuid)) {
-			return Response.ok(this.paramsCache.get(uuid).get("consent")).build();
+			return Response.ok(this.paramsCache.get(uuid).get("opposition")).build();
 		}
 
 		else return Response.status(401).build();
@@ -170,8 +180,8 @@ public class ParameterList {
 
 			String response = "";
 
-			if(this.paramsCache.get(uuid).containsKey("modality")) {
-				response += "modality=" + this.paramsCache.get(uuid).get("modality") + "/";
+			if(this.paramsCache.get(uuid).containsKey("Modality")) {
+				response += "Modality=" + this.paramsCache.get(uuid).get("Modality") + "/";
 			}
 			if(this.paramsCache.get(uuid).containsKey("anatomicRegion")) {
 				response += "anatomicRegion=" + this.paramsCache.get(uuid).get("anatomicRegion") + "/";
@@ -198,6 +208,8 @@ public class ParameterList {
 	@Path("/situation")
 	public Response retrieveSituation(@CookieParam("SessionToken") Cookie cookieSession, @QueryParam("uuid") String uuid) {
 		if (this.paramsCache.containsKey(uuid) && (!Objects.equals(webTokenAuth.getSecteurActivite(cookieSession.getValue()), "empty") || this.paramsCache.get(uuid).containsKey("situation"))) {
+			Log.info(webTokenAuth.getSecteurActivite(cookieSession.getValue()));
+			Log.info(this.paramsCache.get(uuid).containsKey("situation"));
 			return Response.ok("not empty").build();
 		}
 
@@ -218,6 +230,7 @@ public class ParameterList {
 		boolean valid = true;
 		if(this.queryParams.get(value) == null) {
 			valid = false;
+			Log.info(value);
 		}
 		return valid;
 	}

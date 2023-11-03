@@ -92,6 +92,9 @@ public class KOSFile {
 	public KOSFile(CDAFile c) throws IOException {
 		String newPatientName = "Patient^Name";
 
+		File file = new File("ko.dcm");
+		file.createNewFile();
+
 		Attributes fmi = new Attributes();
 		Attributes attrs = new Attributes();
 
@@ -133,7 +136,7 @@ public class KOSFile {
 		attrs.setString(Tag.StudyInstanceUID, VR.UI, c.getStudyID());
 		String sopInstanceUID = this.generateUUID("sopInstance");
 		String seriesInstanceUID = this.generateUUID("seriesInstance");
-
+		Log.info("SopInstanceUID : " + sopInstanceUID);
 		attrs.setString(Tag.SOPInstanceUID, VR.UI, sopInstanceUID);
 		attrs.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
 
@@ -201,10 +204,15 @@ public class KOSFile {
 		attrs.setString(Tag.ReferringPhysicianName, VR.PN, studyAttrs.getString(Tag.ReferringPhysicianName));
 		attrs.setString(Tag.StudyDescription, VR.LO, studyAttrs.getString(Tag.StudyDescription));
 		attrs.setString(Tag.StudyID, VR.SH, studyAttrs.getString(Tag.StudyID));
-
 		Sequence currentRequestedProcedureEvidenceSequence  = attrs.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence , 1);
 		Attributes AtCurrentRequestedProcedureEvidenceSequence = new Attributes();
 		AtCurrentRequestedProcedureEvidenceSequence.setString(Tag.StudyInstanceUID, VR.UI, c.getStudyID());
+		String accessionNumberImage = studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(0).getString(Tag.AccessionNumber);
+		String patientIDImage = studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(0).getString(Tag.PatientID);
+
+		Log.info("Access Image : " + accessionNumberImage);
+		Log.info("PatientID image : " + patientIDImage);
+
 
 		Sequence referencedSeriesSequence  = AtCurrentRequestedProcedureEvidenceSequence.newSequence(Tag.ReferencedSeriesSequence , 1);
 		String textValue = "Examen : " + studyAttrs.getString(Tag.StudyDescription) + "\n";
@@ -215,6 +223,9 @@ public class KOSFile {
 
 			studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.Modality);
 			studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.SeriesDescription);
+			studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.AccessionNumber);
+			studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.PatientID);
+
 
 			Attributes aReferencedSeriesSequence = new Attributes();
 			aReferencedSeriesSequence.addAll(studyAttrs.getNestedDataset(Tag.ReferencedSeriesSequence, i));	
@@ -237,30 +248,56 @@ public class KOSFile {
 				contentSequence.add(contentAttr);
 			}
 		}
-		attrs.setString(Tag.TextValue, VR.UT, textValue);
+		
+		Attributes contentAttr = new Attributes();
+		contentAttr.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+		contentAttr.setString(Tag.ValueType, VR.CS, "TEXT");
+		Sequence conceptNameCodeSequenceTextValue = contentAttr.newSequence(Tag.ConceptNameCodeSequence, 1);
+		Attributes attrConceptNameCode = new Attributes();
+		attrConceptNameCode.setString(Tag.CodeValue, VR.SH, "113012");
+		attrConceptNameCode.setString(Tag.CodingSchemeDesignator, VR.SH, "DCM");
+		attrConceptNameCode.setString(Tag.CodeMeaning, VR.LO, "Key Object Description");
+		conceptNameCodeSequenceTextValue.add(attrConceptNameCode);
+		contentAttr.setString(Tag.TextValue, VR.UT, textValue);
+
+		contentSequence.add(contentAttr);
+		
 		fmi.setString(Tag.TransferSyntaxUID, VR.UI, UID.ImplicitVRLittleEndian);
 		fmi.setString(Tag.MediaStorageSOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
 		fmi.setBytes(Tag.FileMetaInformationVersion, VR.OB, new byte[] {(byte)0x00, (byte)0x01});
 		fmi.setString(Tag.MediaStorageSOPInstanceUID, VR.UI, sopInstanceUID);
 		fmi.setString(Tag.ImplementationClassUID, VR.UI, "1.2.276.0.7230010.3.0.3.6.7");
 
+		if(!accessionNumberImage.equals(c.getAccessionNumberExtension())) {
+			Log.info("Wrong accession number between cda and image");
+			Log.info("image : " + accessionNumberImage);
+			Log.info("cda : " + c.getAccessionNumberExtension());
+		}
+		else if(!patientIDImage.equals(c.getIpp())) {
+			Log.info("Wrong ipp between cda and image");
+			Log.info("image : " + patientIDImage);
+			Log.info("cda : " + c.getIpp());
+		}
+		else {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			// Not sure about the tsuid
+			//DicomOutputStream dos = new DicomOutputStream(bos, "1.2.840.10008.1.2.1");
+			DicomOutputStream dos = new DicomOutputStream(file);
+			dos.writeDataset(fmi, attrs);
+			dos.flush();
+			dos.close();
 
-		ByteArrayOutputStream bos = new ByteArrayOutputStream();
-		// Not sure about the tsuid
-		DicomOutputStream dos = new DicomOutputStream(bos, "1.2.840.10008.1.2.1");
-		dos.writeDataset(fmi, attrs);
-		dos.flush();
-		dos.close();
-
-		fileContent = bos.toByteArray();
-		parseKOS(new DicomInputStream(new ByteArrayInputStream(fileContent)));
+			//fileContent = bos.toByteArray();
+			//parseKOS(new DicomInputStream(new ByteArrayInputStream(fileContent)));
+			fileContent = Files.readAllBytes(file.toPath());
+			parseKOS(new DicomInputStream(file));
+		}
 	}
-
 	private String generateUUID(String type) throws UnknownHostException, SocketException {
 		InetAddress ip;
 		ip = InetAddress.getLocalHost();
 		NetworkInterface network = NetworkInterface.getByInetAddress(ip);
-		byte[] mac = network.getHardwareAddress();
+		/*byte[] mac = network.getHardwareAddress();
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < mac.length; i++) {
 			sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "" : ""));
@@ -269,9 +306,9 @@ public class KOSFile {
 		String s = sb.toString();
 		BigInteger bi = new BigInteger(s, 16);
 		long macA = bi.longValue() % 100000000;
-
+		 */
 		DateTimeFormatter fmt3 = DateTimeFormatter.ofPattern("YYMMddHHmmss");  
-		String oid = BASE_OID + "." + macA + "." + new Random().nextInt(99999) + "." +  LocalDateTime.now().format(fmt3) + ".1.1";
+		String oid = BASE_OID + "." + "1234" + "." + new Random().nextInt(99999) + "." +  LocalDateTime.now().format(fmt3) + ".1.1";
 		switch(type) {
 		case "sopInstance" :
 			oid += ".1";
@@ -347,7 +384,7 @@ public class KOSFile {
 				seriesURL.put(
 						currentSerieInfo.getString(Tag.SeriesInstanceUID),
 						seriesInfo
-				);
+						);
 			}
 
 			dis.close();

@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+   stub:
+    build:
+      context: ../
+    ports:
+      - 80:8080

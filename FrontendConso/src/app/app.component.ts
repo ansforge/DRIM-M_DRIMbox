@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { ActivationEnd, Router } from '@angular/router';
 import { CookieService } from 'ngx-cookie-service';
@@ -84,7 +84,7 @@ export class AppComponent {
    * Verify with backend if user connected
    * */
   verifyConnection() {
-    this.http.get('/api/auth?uuid=' + this.uuid, { responseType: 'text' }).subscribe(data => {
+    this.http.get('/api-conso/auth?uuid=' + this.uuid, { responseType: 'text' }).subscribe(data => {
       // Back can answer : connected -- means user is already connected
       //                   connected but no structure : + list structs -- means user is already connected but activity struct no selected, gives list of user structs
       //                   no connected : + url -- means user is not connected, gives url to ProSanteConnect
@@ -96,7 +96,7 @@ export class AppComponent {
         window.location.replace(url);
       }
       else {
-        this.http.get('/parameters/situation?uuid=' + this.uuid, { responseType: 'text' }).subscribe(data => {
+        this.http.get('/api/conso/parameters/situation?uuid=' + this.uuid, { responseType: 'text' }).subscribe(data => {
           if (data.startsWith("empty")) {
             this.askStructure();
           }
@@ -115,7 +115,7 @@ export class AppComponent {
     // Display structure panel
     this.structurePanel = true;
 
-    this.http.get('/api/locations', { responseType: 'text' }).subscribe(data => {
+    this.http.get('/api-conso/location', { responseType: 'text' }).subscribe(data => {
       // Retrieve structure list
       this.secteurActs = data.split("/");
     });
@@ -127,14 +127,23 @@ export class AppComponent {
   sendSect() {
     // verify a structure is selected
     if (this.selectedStruct !== undefined) {
+      this.http.post('/api-conso/location', this.selectedStruct, {
+        responseType: 'text',
+        observe: 'response'
+      }).subscribe(
+        response => {
+          if (response.body.startsWith("Success")) {
 
-      this.http.get('/api/location?workLocation=' + this.selectedStruct, { responseType: 'text' }).subscribe(data => {
-        // If "Success" response, struct is uptated in back
-        if (data.startsWith("Success")) {
-          // Hide struct panel
-          this.structurePanel = false;
-        }
-      });
+            // Hide struct panel
+            this.structurePanel = false;
+          }
+        },
+        error => {
+          console.log("Error", error, this.selectedStruct);
+        },
+        () => {
+          console.log("POST is completed");
+        });
     }
   }
 

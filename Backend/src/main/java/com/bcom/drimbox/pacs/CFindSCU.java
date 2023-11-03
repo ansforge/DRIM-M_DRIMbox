@@ -50,6 +50,7 @@ import org.dcm4che3.net.pdu.PresentationContext;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import io.quarkus.logging.Log;
 import jakarta.inject.Singleton;
 
 
@@ -59,6 +60,8 @@ public class CFindSCU {
 	@ConfigProperty(name = "dmp.retrieveURL")
 	String retrieveURL;
 
+	//private String retrieveUrl = "http://demodrim.labs.b-com.com/drimbox/studies/";
+	private String retrieveUrl = "http://localhost:4200/api/source/studies/";
 
 	// Parameters to access pacs from application.properties
 	String callingAET = ConfigProvider.getConfig().getValue("dcm.cmove.callingAET", String.class);
@@ -108,6 +111,8 @@ public class CFindSCU {
 				this.keys.setString(Tag.SOPInstanceUID, VR.SH, "*");
 				this.keys.setString(Tag.SOPClassUID, VR.SH, "");
 				this.keys.setString(Tag.Modality, VR.SH, "*");
+				this.keys.setString(Tag.AccessionNumber, VR.SH, "");
+				this.keys.setString(Tag.PatientID, VR.LO, "");
 			}
 			
 			try {
@@ -129,7 +134,7 @@ public class CFindSCU {
 	}
 
 	private void Conf() {
-		Connection conn = new Connection(null, "127.0.0.1", this.port);
+		Connection conn = new Connection();
 		ae = new ApplicationEntity(this.callingAET);
 		device.addConnection(conn);
 		device.addApplicationEntity(ae);
@@ -192,13 +197,14 @@ public class CFindSCU {
 			// We get the infos from each series and each images
 			this.results.addAll(data);
 			boolean alreadyExist = false;
-
+			Log.info("Accession Number : " + data.getString(Tag.AccessionNumber));
+			Log.info("PatientID : " + data.getString(Tag.PatientID));
 			if(this.results.getSequence(Tag.ReferencedSeriesSequence) != null) {
 				for (Attributes attr : this.results.getSequence(Tag.ReferencedSeriesSequence)) {
 
 					if(attr.getString(Tag.SeriesInstanceUID).equals(data.getString(Tag.SeriesInstanceUID))) {
 						alreadyExist = true;
-						attr.setString(Tag.ReferencedSOPInstanceUID, VR.UI, data.getString(Tag.SOPInstanceUID));
+						//attr.setString(Tag.ReferencedSOPInstanceUID, VR.UI, data.getString(Tag.SOPInstanceUID));
 						Sequence ReferencedSOPSequence = attr.getSequence(Tag.ReferencedSOPSequence);
 						Attributes attrsReferencedSop = new Attributes();
 						attrsReferencedSop.setString(Tag.ReferencedSOPClassUID, VR.UI, data.getString(Tag.SOPClassUID));
@@ -210,9 +216,11 @@ public class CFindSCU {
 				if (!alreadyExist) {
 					Sequence referencedSeriesSequence  = this.results.getSequence(Tag.ReferencedSeriesSequence);
 					Attributes attrsReferenced = new Attributes();
-					attrsReferenced.setString(Tag.RetrieveURL, VR.UR, this.retrieveURL + data.getString(Tag.StudyInstanceUID) + "/series/" + data.getString(Tag.SeriesInstanceUID));
+					attrsReferenced.setString(Tag.RetrieveURL, VR.UR, this.retrieveUrl + data.getString(Tag.StudyInstanceUID) + "/series/" + data.getString(Tag.SeriesInstanceUID));
 					attrsReferenced.setString(Tag.Modality, VR.UR, data.getString(Tag.Modality));
 					attrsReferenced.setString(Tag.SeriesDescription, VR.UR, data.getString(Tag.SeriesDescription));
+					attrsReferenced.setString(Tag.AccessionNumber, VR.SH, data.getString(Tag.AccessionNumber));
+					attrsReferenced.setString(Tag.PatientID, VR.LO, data.getString(Tag.PatientID));
 					attrsReferenced.setString(Tag.SeriesInstanceUID, VR.UI, data.getString(Tag.SeriesInstanceUID));
 					referencedSeriesSequence.add(attrsReferenced);
 
@@ -227,9 +235,11 @@ public class CFindSCU {
 			else  {
 				Sequence referencedSeriesSequence  = this.results.newSequence(Tag.ReferencedSeriesSequence , 1);
 				Attributes attrsReferenced = new Attributes();
-				attrsReferenced.setString(Tag.RetrieveURL, VR.UR, this.retrieveURL + data.getString(Tag.StudyInstanceUID) + "/series/" + data.getString(Tag.SeriesInstanceUID));
+				attrsReferenced.setString(Tag.RetrieveURL, VR.UR, this.retrieveUrl + data.getString(Tag.StudyInstanceUID) + "/series/" + data.getString(Tag.SeriesInstanceUID));
 				attrsReferenced.setString(Tag.Modality, VR.UR, data.getString(Tag.Modality));
 				attrsReferenced.setString(Tag.SeriesDescription, VR.UR, data.getString(Tag.SeriesDescription));
+				attrsReferenced.setString(Tag.AccessionNumber, VR.SH, data.getString(Tag.AccessionNumber));
+				attrsReferenced.setString(Tag.PatientID, VR.LO, data.getString(Tag.PatientID));
 				attrsReferenced.setString(Tag.SeriesInstanceUID, VR.UI, data.getString(Tag.SeriesInstanceUID));
 				referencedSeriesSequence.add(attrsReferenced);
 

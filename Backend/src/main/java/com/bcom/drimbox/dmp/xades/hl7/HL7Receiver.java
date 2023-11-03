@@ -71,7 +71,6 @@ public class HL7Receiver {
 	 */
 	public void start() {
 		NetServer server = vertx.createNetServer();
-
 		server.connectHandler(socket -> {
 			socket.handler(buffer -> {
 				message += buffer.toString();
@@ -101,12 +100,16 @@ public class HL7Receiver {
 			for (int i = 0; i < 5; i++) {
 				cda = cda.substring(cda.indexOf("|") + 1);
 			}
-			cda = cda.substring(0, cda.indexOf("|"));
+			cda = cda.substring(17, cda.indexOf("|"));
 			// Decode b64 cda to string
 			byte[] rawCDAData = Base64.getDecoder().decode(cda);
 			CDAFile cdaString = new CDAFile(new String(rawCDAData));
 
 			dmpAPI.storeCDA(cdaString);
+		}
+		else {
+			Log.info("Message with no MSH");
+			Log.info(message);
 		}
 
 	}

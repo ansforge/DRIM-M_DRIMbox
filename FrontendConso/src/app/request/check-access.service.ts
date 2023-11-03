@@ -36,26 +36,26 @@ export class CheckAccessService {
   /**
    * Verify if patient dmp is open and user has right to access to it
    * @param ins of the patient user wants to access
-   * @param consent value 'yes' or 'no' -> give access if user don't have the right
+   * @param opposition value 'yes' or 'no' -> give access if user don't have the right
    */
-  async td0_2(ins: string, consent: string, uuid: string): Promise<string> {
-    if (consent === "no") {
+  async td0_2(ins: string, opposition: string, uuid: string): Promise<string> {
+    if (opposition === "yes") {
       return "no access";
     }
 
-    else if (consent === "unknown") {
+    else if (opposition === "unknown") {
       return "unknown";
     }
 
     else {
-      const response = await this.http.get('/api/verify/' + ins + "?uuid=" + uuid, { responseType: 'text' }).toPromise();
+      const response = await this.http.get('/api/conso/dmp/verify/' + ins + "?uuid=" + uuid, { responseType: 'text' }).toPromise();
 
       const verify = response.toString().split("AUTORISATION")[1].split("code=\"")[1].split("\"")[0];
       // If VALIDE, user has right to access to patient dmp
       if (verify === "VALIDE") {
         return "ok";
       }
-      else if (consent === "yes" && verify !== "INTERDIT") {
+      else if (opposition === "yes" && verify !== "INTERDIT") {
         // If content : yes, we add right for the user to access patient dmp
         return this.td0_3(ins);
       }

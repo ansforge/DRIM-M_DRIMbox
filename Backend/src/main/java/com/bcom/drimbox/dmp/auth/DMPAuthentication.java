@@ -49,7 +49,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import com.bcom.drimbox.DbMain;
 import com.bcom.drimbox.psc.ProSanteConnect;
 
-@Path("/api")
+import io.quarkus.logging.Log;
+
+@Path("/api/auth")
 public class DMPAuthentication {
 
 	@Inject
@@ -79,8 +81,11 @@ public class DMPAuthentication {
 	@ConfigProperty(name="conso.host")
 	String consoHost;
 
+	@ConfigProperty(name="source.host")
+	String sourceHost;
+
 	String uuid;
-	
+
 	/**
 	 * Redirect to RIS page after PSC authentication
 	 *
@@ -90,6 +95,7 @@ public class DMPAuthentication {
 	 * @return 301 redirection
 	 */
 	@GET
+	@Path("/redirect")
 	@Produces(MediaType.TEXT_HTML)
 	public Response getLandingPage(@QueryParam("code") String code, @CookieParam("SessionToken") Cookie cookieSession, @QueryParam("state") String state, @QueryParam("uuid") String uuid) {
 		if (cookieSession != null) {
@@ -108,7 +114,7 @@ public class DMPAuthentication {
 			String url = "";
 
 			if(dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.SOURCE) {
-				url = risHost + "/IHEInvokeImageDisplay";
+				url = sourceHost + "/IHEInvokeImageDisplay";
 			}
 			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.CONSO) {
 				url = consoHost + "?uuid=" + this.uuid;
@@ -131,7 +137,6 @@ public class DMPAuthentication {
 	 * @param cookieSession Cookie sent from front app
 	 * @return 200 ok with connected state
 	 */
-	@Path("/auth")
 	@GET
 	public Response authCheck(@CookieParam("SessionToken") Cookie cookieSession, @QueryParam("uuid") String uuid) {
 		if (cookieSession == null)
@@ -164,13 +169,15 @@ public class DMPAuthentication {
 			webTokenAuth.registerClient(cookieID, authentServ);
 			String redirectURI = "";
 			if(dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.SOURCE) {
-				redirectURI = risHost + "/api";
+				Log.info("source auth");
+				redirectURI = sourceHost + "/api-source/auth/redirect";
 			}
 			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.CONSO) {
-				redirectURI = consoHost + "/api";
+				Log.info("conso auth");
+				redirectURI = consoHost + "/api-conso/auth/redirect";
 			}
 			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.RIS) {
-				redirectURI = risHost + "/api";
+				redirectURI = risHost + "/api/auth/redirect";
 			}
 			this.uuid = uuid;
 

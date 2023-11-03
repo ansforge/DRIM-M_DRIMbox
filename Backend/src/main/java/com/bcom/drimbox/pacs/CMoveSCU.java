@@ -27,28 +27,25 @@
 
 package com.bcom.drimbox.pacs;
 
+import static com.bcom.drimbox.pacs.CStoreSCP.EB_DONE_ADDRESS;
+
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.security.GeneralSecurityException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-
-import io.quarkus.logging.Log;
-import io.smallrye.mutiny.Multi;
-import io.vertx.core.Vertx;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
 import org.dcm4che3.data.VR;
+import org.dcm4che3.io.DicomInputStream;
+import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
 import org.dcm4che3.net.ApplicationEntity;
 import org.dcm4che3.net.Association;
 import org.dcm4che3.net.Connection;
@@ -60,7 +57,15 @@ import org.dcm4che3.net.pdu.AAssociateRQ;
 import org.dcm4che3.net.pdu.PresentationContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import static com.bcom.drimbox.pacs.CStoreSCP.EB_DONE_ADDRESS;
+import com.bcom.drimbox.dmp.database.DatabaseManager;
+import com.bcom.drimbox.dmp.database.SourceEntity;
+
+import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Multi;
+import io.vertx.core.Vertx;
+import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class CMoveSCU {
@@ -86,6 +91,9 @@ public class CMoveSCU {
 	// Cache of instance data
 	@Inject
 	CStoreSCP cStoreSCP;
+	
+	@Inject
+	DatabaseManager databaseManager;
 
 	private final Vertx vertx;
 
@@ -96,18 +104,23 @@ public class CMoveSCU {
 
 
 	public Multi<byte[]> cMove(String studyUID, String serieUID, List<String> supportedTransferSyntax, List<String> preferredTransferSyntax, String boundary)  {
-		Instant startTime = Instant.now();
+		//Instant startTime = Instant.now();
 		// We start the cmove in another thread so we can return the Multi as soon as possible
 		vertx.executeBlocking(promise -> {
 					request = new Attributes(2);
 					this.request.setString(Tag.QueryRetrieveLevel, VR.CS, "SERIES");
 					this.request.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
 					this.request.setString(Tag.SeriesInstanceUID, VR.UI, serieUID);
+					
+					String ins = retrieveINS(studyUID);
+					Log.info("ins : " + ins);
+
 
 					cStoreSCP.resetMultipart();
 					cStoreSCP.setPreferredTransferSyntax(preferredTransferSyntax);
 					cStoreSCP.setSupportedTransferSyntax(supportedTransferSyntax);
 					cStoreSCP.setBoundary(boundary);
+					cStoreSCP.setIns(ins);
 
 					ExecutorService executor = Executors.newFixedThreadPool(4);
                     ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(4);
@@ -136,7 +149,7 @@ public class CMoveSCU {
 						Log.error("Unexpected error : " + res);
 						eventBus.publish(EB_DONE_ADDRESS, true);
 					} else {
-						Log.info("Pacs cmove TimeTT : " + Duration.between(startTime, Instant.now()).toString());
+						//Log.info("Pacs cmove TimeTT : " + Duration.between(startTime, Instant.now()).toString());
 					}
 				}
 		);
@@ -208,5 +221,27 @@ public class CMoveSCU {
 				this.request.setString(Tag.SOPInstanceUID, VR.UI, iuids);
 			}
 		}
+	}
+	
+	public String retrieveINS(String studyInstanceUID) {
+		SourceEntity entity = this.databaseManager.getEntity(studyInstanceUID);
+		if(entity == null) {
+			Log.info("No data found in database");
+			return "error";
+		}
+		InputStream targetStream = new ByteArrayInputStream(entity.rawKOS);
+		try (DicomInputStream dis = new DicomInputStream(targetStream)) {
+			dis.setIncludeBulkData(IncludeBulkData.URI);
+			Attributes dataset = dis.readDataset();
+			String ins = dataset.getString(Tag.PatientID);
+			Log.info(ins);
+			return ins;
+
+		} catch (Exception e) {
+			Log.error("Error in verifySop");
+			Log.error(e.getMessage());
+		}
+		return "error";
+		
 	}
 }

@@ -122,6 +122,10 @@
     <button type="button" mat-raised-button color="success" style="margin-left: 5%;" (click)="filterSearch()">Rechercher</button>
 
   </div>
+  <input (change)="documentsService.onFileSelect($event.target)" type="file" class="form-control" accept=".dcm">
+  <div>
+
+  </div>
 
   <h4 *ngIf="documentsService.getNbDocuments() !== -1" style="text-align:center">{{documentsService.getNbDocuments()}} examens trouvés</h4>
   <table class="center" *ngIf="documentsService.getNbDocuments() !== 0">

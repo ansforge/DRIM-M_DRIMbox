@@ -1,0 +1,1 @@
+Ce répertoire contient un exemple de transaction XDS permettant l'alimentation d'un KOS vers le DMP, et l'acquitement corespondant.

@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Fragments;
+import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
 import org.dcm4che3.data.VR;
@@ -62,10 +63,13 @@ import org.dcm4che3.io.DicomOutputStream;
 import org.dcm4che3.util.Property;
 import org.dcm4che3.util.SafeClose;
 
+import io.quarkus.logging.Log;
+
 
 public class DCMTranscoder {
 
 	private String tsuid;
+	private String ins;
 	private TransferSyntaxType tstype;
 	private boolean retainfmi;
 	private boolean nofmi;
@@ -74,7 +78,8 @@ public class DCMTranscoder {
 	private int maxThreads = 1;
 
 
-	public final void setTransferSyntax(String uid) {
+	public final void setTransferSyntax(String uid, String ins) {
+		this.ins = ins;
 		this.tsuid = uid;
 		this.tstype = TransferSyntaxType.forUID(uid);
 		if (tstype == null) {
@@ -134,8 +139,18 @@ public class DCMTranscoder {
 				dis.setIncludeBulkData(IncludeBulkData.URI);
 				fmi = dis.readFileMetaInformation();
 				dataset = dis.readDataset();
-				dataset.setString(Tag.OtherPatientIDs, VR.LO, "1234");
-			}
+				Sequence otherPatientIDsSequence = dataset.newSequence(Tag.OtherPatientIDsSequence, 1);
+				Attributes seqOthers = new Attributes();
+				seqOthers.setString(Tag.PatientID, VR.LO, this.ins);
+				seqOthers.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
+
+				Sequence issuerOfPatientIDQualifiersSequences = seqOthers.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
+				Attributes seqIssuers = new Attributes();
+				seqIssuers.setString(Tag.UniversalEntityID, VR.UT, "1.2.250.1.213.1.4.10");
+				seqIssuers.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+				issuerOfPatientIDQualifiersSequences.add(seqIssuers);
+				otherPatientIDsSequence.add(seqOthers);
+							}
 			Object pixeldata = dataset.getValue(Tag.PixelData);
 			Compressor compressor = null;
 			DicomOutputStream dos = null;

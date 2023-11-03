@@ -27,17 +27,16 @@
 
 package com.bcom.drimbox.dmp.auth;
 
+import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.Response;
-
-import io.quarkus.logging.Log;
 
 @Path("/api")
 public class WorkLocation {
@@ -50,7 +49,7 @@ public class WorkLocation {
 	/**
 	 * Retrieve all work locations
 	 */
-	@Path("/locations")
+	@Path("/location")
 	@GET
 	public Response retrieveWorkLocations(@CookieParam("SessionToken") Cookie cookieSession) {
 
@@ -72,20 +71,20 @@ public class WorkLocation {
 	/**
 	 * Set selected location
 	 */
-	@GET
+	// TODO : POST not GET
+	@POST
 	@Path("/location")
-	public Response setWorkLocation(@QueryParam("workLocation") String workLocation, @CookieParam("SessionToken") Cookie cookieSession) {
+	public Response setWorkLocation(String requestBody, @CookieParam("SessionToken") Cookie cookieSession) {
 
-		if(cookieSession != null && webTokenAuth.setSecteurActivite(cookieSession.getValue(), workLocation)) {
+		if(cookieSession != null && webTokenAuth.setSecteurActivite(cookieSession.getValue(), requestBody)) {
 			
 			JsonObject exercices = webTokenAuth.getUserInfo(cookieSession.getValue()).getJsonObject("SubjectRefPro").getJsonArray("exercices").getJsonObject(0);
 			JsonObject activites = null;
 			Log.info(exercices.getJsonArray(FIELD_ACTIVITIES).size());
 			for (int i=0; i < exercices.getJsonArray(FIELD_ACTIVITIES).size(); i++) {
-				if(exercices.getJsonArray(FIELD_ACTIVITIES).getJsonObject(i).getString("raisonSocialeSite").equals(workLocation))
+				if(exercices.getJsonArray(FIELD_ACTIVITIES).getJsonObject(i).getString("raisonSocialeSite").equals(requestBody))
 					activites = exercices.getJsonArray(FIELD_ACTIVITIES).getJsonObject(i);
 			}
-
 
 			if (activites != null) {
 				return Response.ok("Success " + activites.getString("ancienIdentifiantDeLaStructure")).build();

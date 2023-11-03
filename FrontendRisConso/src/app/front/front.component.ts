@@ -45,13 +45,13 @@ export class FrontComponent implements OnChanges {
     let body = '';
     // Check if a structure is selected
     if (this.selectedStruct != "") {
-      body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&lastName=aa&firstName=aaa&birthDate=aaa&birthPlace=aaa&sex=aaa&situation=' + this.selectedStruct;
+      body = 'ins=162018885045327&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&lastName=aa&firstName=aaa&birthDate=aaa&birthPlace=aaa&sex=aaa&situation=' + this.selectedStruct;
     }
 
     else
-      body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&lastName=aa&firstName=aaa&birthDate=aaa&birthPlace=aaa&sex=aaa&toto=az';
+      body = 'ins=162018885045327&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&lastName=aa&firstName=aaa&birthDate=aaa&birthPlace=aaa&sex=aaa&toto=az';
 
-    this.http.post('http://localhost:4200/parameters', body, {
+    this.http.post('http://localhost:4200/drim', body, {
       responseType: 'text',
       observe: 'events'
     }).subscribe(
@@ -72,8 +72,8 @@ export class FrontComponent implements OnChanges {
 
   goToUser2() {
 
-    let body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&studyInstanceUID=2.16.840.1.113669.632.20.1211.10000502993';
-    this.http.post('http://localhost:4200/parameters', body, {
+    let body = 'ins=162018885045327&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&studyInstanceUID=2.16.840.1.113669.632.20.1211.10000502993';
+    this.http.post('http://localhost:4200/drim', body, {
       responseType: 'text',
     }).subscribe(
       data => {
@@ -88,8 +88,8 @@ export class FrontComponent implements OnChanges {
   }
 
   goToUser3() {
-    let body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&anatomicRegion=Thorax';
-    this.http.post('http://localhost:4200/parameters', body, {
+    let body = 'ins=162018885045327&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&anatomicRegion=Thorax';
+    this.http.post('http://localhost:4200/drim', body, {
       responseType: 'text',
       observe: 'events'
     }).subscribe(
@@ -110,7 +110,7 @@ export class FrontComponent implements OnChanges {
 
   goToUser4() {
 
-    let body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&studyDate=20210123-20230123';
+    let body = 'ins=265075598096690&insAuthority=1.2.250.1.213.1.4.8&consent=yes&studyDate=20210123-20230123';
     this.http.post('http://localhost:4200/parameters', body, {
       responseType: 'text',
       observe: 'events'
@@ -132,7 +132,7 @@ export class FrontComponent implements OnChanges {
 
   goToUser5() {
 
-    let body = 'ins=248039263001064&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&studyDate=20160910-20220910';
+    let body = 'ins=265075598096690&insAuthority=1.2.250.1.213.1.4.8&consent=yes&patientID=123&patientIDIssuer=1470003641&modality=CT&studyDate=20160910-20220910';
     this.http.post('http://localhost:4200/parameters', body, {
       responseType: 'text',
       observe: 'events'

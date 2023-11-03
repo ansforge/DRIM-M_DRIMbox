@@ -29,6 +29,7 @@ package com.bcom.drimbox.dmp.xades;
 import com.bcom.drimbox.dmp.xades.file.CDAFile;
 import com.bcom.drimbox.dmp.xades.file.KOSFile;
 import com.bcom.drimbox.dmp.xades.utils.XadesType;
+import com.bcom.drimbox.dmp.xades.utils.XadesType.ClassificationCode;
 
 import io.quarkus.logging.Log;
 import jakarta.json.Json;
@@ -64,6 +65,7 @@ public class DocumentEntry extends BaseElement {
 
 	XadesType.SourcePatientInfo sourcePatientInfo;
 	String submissionTime;
+	String creationTime;
 	String languageCode;
 	String legalAuthenticator;
 	String serviceStartTime;
@@ -122,7 +124,8 @@ public class DocumentEntry extends BaseElement {
 		title = eventCodeDisplayName;
 
 		// Seems that it is not needed (we already get it from the CDA)
-		//confidentialities.add(new XadesType.ClassificationCode("N", "Normal", "2.16.840.1.113883.5.25" ));
+		confidentialities.clear();
+		confidentialities.add(new XadesType.ClassificationCode("N", "Normal", "2.16.840.1.113883.5.25" ));
 		confidentialities.add(new XadesType.ClassificationCode("MASQUE_PS", "Masqué aux professionnels de santé", "1.2.250.1.213.1.1.4.13" ));
 		confidentialities.add(new XadesType.ClassificationCode("INVISIBLE_PATIENT", "Non visible par le patient", "1.2.250.1.213.1.1.4.13" ));
 
@@ -130,8 +133,11 @@ public class DocumentEntry extends BaseElement {
 	}
 
 	private void parseCDA(CDAFile cdaFile) {
-
 		confidentialities.add(cdaFile.getConfidentiality());
+		Log.info(cdaFile.getConfidentiality().code);
+		if(cdaFile.getConfidentiality().code.equals("INVISIBLE_PATIENT")) {
+			confidentialities.add(new XadesType.ClassificationCode("N", "Normal", "2.16.840.1.113883.5.25" ));
+		}
 		patientID = cdaFile.getPatientID();
 		accessionNumberRoot = cdaFile.getAccessionNumberRoot();
 		accessionNumberExtension = cdaFile.getAccessionNumberExtension();
@@ -167,17 +173,30 @@ public class DocumentEntry extends BaseElement {
 
 			dis.setIncludeBulkData(IncludeBulkData.URI);
 			dataset = dis.readDataset();
-			textValue = dataset.getString(Tag.TextValue);
+			for (Attributes sequence : dataset.getSequence(Tag.ContentSequence)) {
+				if(sequence.getString(Tag.ValueType).equals("TEXT")) {
+					textValue = sequence.getString(Tag.TextValue);
+				}
+			}
+
 			sopInstanceUID = dataset.getString(Tag.SOPInstanceUID);
+			creationTime = dataset.getString(Tag.InstanceCreationDate) + dataset.getString(Tag.InstanceCreationTime);
 		} finally {
 			SafeClose.close(dos);
 		}
 
 		for (int i=0; i < StringUtils.countMatches(textValue, "Série-"); i++) {
 			String modal = textValue.split("Série-")[i+1].split(" : ")[1].split(" ")[0];
-			String description = getModaliteValue(modal);
-			eventCodes.add( new XadesType.ClassificationCode(modal, description, "1.2.250.1.213.1.1.5.618") );
-
+			Boolean present = false;
+			for (ClassificationCode eventCode : eventCodes) {
+				if(eventCode.code.equals(modal)) {
+					present = true;
+				}
+			}
+			if(!present) {
+				String description = getModaliteValue(modal);
+				eventCodes.add( new XadesType.ClassificationCode(modal, description, "1.2.250.1.213.1.1.5.618") );
+			}
 		}     
 
 		switch(fileType) {
@@ -225,7 +244,10 @@ public class DocumentEntry extends BaseElement {
 
 		// creationTime
 		// TODO : check value. Works with submissionTime for now
-		extrinsicObject.appendChild(createSlotField("creationTime", submissionTime) );
+		if(creationTime == null) {
+			creationTime = getCurrentTime();
+		}
+		extrinsicObject.appendChild(createSlotField("creationTime", creationTime) );
 
 		// Current time
 		extrinsicObject.appendChild(createSlotField("submissionTime", submissionTime) );

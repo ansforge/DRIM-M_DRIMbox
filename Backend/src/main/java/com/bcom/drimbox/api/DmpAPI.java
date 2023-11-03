@@ -65,7 +65,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 // Todo : find a prefix for those request, /dmp maybe ?
-@Path("/api")
+@Path("/api/conso/dmp")
 public class DmpAPI {
 
 	@Inject
@@ -117,6 +117,10 @@ public class DmpAPI {
 
 	public static KOSFile getKOS(String studyUID) {
 		return kosReceived.get(studyUID);
+	}
+	
+	public static void setKOS(KOSFile kos) {
+		kosReceived.put(kos.getStudyUID(), kos);
 	}
 
 	private String getBoundary(String contentType) {
@@ -248,6 +252,8 @@ public class DmpAPI {
 
 	private Response dmpRequest(BaseXadesRequest request) {
 		DMPConnect.DMPResponse response = dmpConnect.sendPostRequest(request);
+		Log.info(response.message);
+		Log.info(response.statusCode);
 		return Response.ok(response.message).build();
 	}
 }

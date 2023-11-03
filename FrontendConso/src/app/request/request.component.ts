@@ -66,8 +66,8 @@ export class RequestComponent implements OnInit, AfterViewInit {
   accessError = false;
   accessUnknown = false;
 
-  // consent value retrieve in url parameter
-  consent: string;
+  // opposition value retrieve in url parameter
+  opposition: string;
   // ins retrieved in url parameter
   ins: string;
 
@@ -115,8 +115,8 @@ export class RequestComponent implements OnInit, AfterViewInit {
       let auth = "";
       if (this.ins === undefined && this.uuid !== undefined) {
         this.ins = await this.retrieveINS();
-        this.consent = await this.retrieveConsent();
-        auth = await this.checkAccessService.td0_2(this.ins, this.consent, this.uuid);
+        this.opposition = await this.retrieveOpposition();
+        auth = await this.checkAccessService.td0_2(this.ins, this.opposition, this.uuid);
       }
 
 
@@ -135,20 +135,20 @@ export class RequestComponent implements OnInit, AfterViewInit {
   }
 
   async retrieveINS() {
-    const response = await this.http.get('/parameters/ins?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
+    const response = await this.http.get('/api/conso/parameters/ins?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
     return response;
   }
 
-  async retrieveConsent() {
-    const response = await this.http.get('/parameters/consent?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
+  async retrieveOpposition() {
+    const response = await this.http.get('/api/conso/parameters/opposition?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
     return response;
   }
 
   async checkFilters() {
-    const response = await this.http.get('/parameters/filter?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
+    const response = await this.http.get('/api/conso/parameters/filter?uuid=' + this.uuid, { responseType: 'text' }).toPromise();
 
-    if (response.includes("modality")) {
-      this.modalites.setValue([response.split("modality=")[1].split("/")[0]]);
+    if (response.includes("Modality")) {
+      this.modalites.setValue([response.split("Modality=")[1].split("/")[0]]);
     }
     if (response.includes("anatomicRegion")) {
       this.regions.setValue([response.split("anatomicRegion=")[1].split("/")[0]]);

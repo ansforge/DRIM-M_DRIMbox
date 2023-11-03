@@ -73,13 +73,16 @@ public class ProSanteConnect {
 
 	@Inject
 	DbMain dbMain;
-	
+
 	@ConfigProperty(name="ris.host")
 	String risHost;
 
 	@ConfigProperty(name="conso.host")
 	String consoHost;
-	
+
+	@ConfigProperty(name="source.host")
+	String sourceHost;
+
 	/**
 	 * Get user info based on the accessToken
 	 *
@@ -160,19 +163,19 @@ public class ProSanteConnect {
 	 */
 	public Boolean createAuthToken(String code, String cookieID) {
 		try {
-			
+
 			String redirectURI = "";
 
 			if(dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.SOURCE) {
-				redirectURI = risHost + "/api";
+				redirectURI = sourceHost + "/api-source/auth/redirect";
 			}
 			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.CONSO) {
-				redirectURI = consoHost + "/api";
+				redirectURI = consoHost + "/api-conso/auth/redirect";
 			}
 			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.RIS) {
-				redirectURI = risHost + "/api";
+				redirectURI = risHost + "/api/auth/redirect";
 			}			
-			
+			Log.info("code : " + code);
 			HttpClient httpclient = HttpClients.createDefault();
 			HttpPost httppost = new HttpPost(baseURL + "token");
 			httppost.setHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -191,7 +194,6 @@ public class ProSanteConnect {
 				try (InputStream is = entity.getContent()) {
 					JsonReader rdr = Json.createReader(is);
 					JsonObject obj = rdr.readObject();
-
 					String rawAccessToken = obj.getString("access_token", "");
 					if (rawAccessToken.isEmpty()) {
 						Log.error("Can't get access token from PSC");

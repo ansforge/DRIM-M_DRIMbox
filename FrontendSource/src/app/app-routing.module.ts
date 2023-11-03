@@ -30,12 +30,8 @@ import { SourceViewerComponent } from './source-viewer/source-viewer.component';
 
 const routes: Routes = [{
   path: '',
-  component: AppComponent
-},
-{
-  path: 'IHEInvokeImageDisplay',
   component: SourceViewerComponent
-},
+}
 ];
 @NgModule({
   imports: [RouterModule.forRoot(routes)],

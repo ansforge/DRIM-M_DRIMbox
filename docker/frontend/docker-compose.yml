@@ -14,3 +14,10 @@ services:
       - 8082:8081
     environment:
       DRIMBOX_MODE: conso
+
+   viewer-ohif:
+    image: viewer-ohif:latest
+    ports:
+      - 3000:80
+    environment:
+      - PUBLIC_URL=http://localhost:3000/viewer/

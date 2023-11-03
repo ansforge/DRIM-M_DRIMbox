@@ -27,7 +27,6 @@
 
 package com.bcom.drimbox.api;
 
-import static com.bcom.drimbox.utils.PrefixConstants.DRIMBOX_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.METADATA_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.SERIES_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.STUDIES_PREFIX;
@@ -36,24 +35,23 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.Future;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.inject.spi.CDI;
-import jakarta.inject.Inject;
-import jakarta.json.*;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.*;
-
-import com.bcom.drimbox.utils.exceptions.RequestErrorException;
-import com.bcom.drimbox.utils.exceptions.WadoErrorException;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.io.DicomInputStream;
@@ -62,20 +60,37 @@ import org.dcm4che3.util.TagUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.RestMulti;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 import com.bcom.drimbox.dmp.database.DatabaseManager;
 import com.bcom.drimbox.dmp.database.SourceEntity;
-import com.bcom.drimbox.pacs.CStoreSCP;
 import com.bcom.drimbox.psc.ProSanteConnect;
 import com.bcom.drimbox.utils.RequestHelper;
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
+import com.bcom.drimbox.utils.exceptions.WadoErrorException;
 
 import io.quarkus.logging.Log;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import jakarta.inject.Inject;
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 
-@Path("/" + DRIMBOX_PREFIX)
+@Path("/api/source")
 public class DRIMboxSourceAPI {
 	@ConfigProperty(name = "pacs.wado")
 	String wadoSuffix;
@@ -88,6 +103,8 @@ public class DRIMboxSourceAPI {
 	@ConfigProperty(name = "debug.noAuth", defaultValue="false")
 	Boolean noAuth;
 
+	@ConfigProperty(name = "source.host")
+	String sourceHost;
 
 	@Inject
 	RequestHelper requestHelper;
@@ -245,11 +262,20 @@ public class DRIMboxSourceAPI {
 		return false;
 	}
 
+	
+	/**
+	 * API to handle call to open DB source viewer. 
+	 * It generates json after a wado-rs metadata request to the pacs
+	 * @param studyUID
+	 * @param uriInfo
+	 * @param idCDA
+	 * @return
+	 */
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
-	@Path("ohifv3metadata/{studyUID}")
-	public Response getOHIFv3Metadata(String studyUID, @Context UriInfo uriInfo) {
-
+	@Path("metadata/{studyUID}")
+	public Response getSourceMetadata(String studyUID, @Context UriInfo uriInfo, @QueryParam("idCDA") String idCDA, 
+			@QueryParam("accessionNumber") String accessionNumber, @QueryParam("requestType") String requestType) {
 		final String pacsUrl = getWadoUrl();
 
 		String url = pacsUrl + "/" + STUDIES_PREFIX +"/" + studyUID + "/" + METADATA_PREFIX;
@@ -262,13 +288,24 @@ public class DRIMboxSourceAPI {
 			case 504:
 				return Response.ok(responseMessage).status(responseCode).build();
 			case 404:
+				Log.info(studyUID + " not correct : " + studyUID);
 				return Response.ok(String.format("Study : %s not found at %s", studyUID, pacsUrl)).status(responseCode).build();
 			case 200:
 				break;
 			default:
 				return Response.ok(String.format("Error when retrieving metadata at %s for study %s. Reason : %s", pacsUrl, studyUID, responseMessage)).status(responseCode).build();
 		}
+		
+		SourceEntity entity = this.databaseManager.getEntity(studyUID);
+		if(entity == null) {
+			Log.info("No data found in database");
+		}
 
+		if(!entity.cdaID.equals(idCDA.split("_")[0])) {
+			Log.info("incorrect value between idcda in request : " + idCDA.split("_")[0] + " and idcda in bdd : " + entity.cdaID);
+			return Response.ok(String.format("incorrect idcda : %s and %s", idCDA.split("_")[0], entity.cdaID)).build();
+		}
+		
 		// Read metadata from server
 		var jsonReader = Json.createReader(new StringReader(responseMessage));
 		JsonArray dicomMetadata = jsonReader.readArray();
@@ -298,8 +335,6 @@ public class DRIMboxSourceAPI {
 				seriesMap.put(currentSeriesUID, seriesObject);
 			}
 
-			JsonObjectBuilder currentSeriesJsonObject = seriesMap.get(currentSeriesUID);
-
 			JsonObjectBuilder metadata = Json.createObjectBuilder();
 			String instanceUID = getStringField.apply(Tag.SOPInstanceUID);
 			metadata.add("SOPInstanceUID", instanceUID);
@@ -319,7 +354,7 @@ public class DRIMboxSourceAPI {
 			// Add to the instance list
 			currentInstancesArray.add(Json.createObjectBuilder()
 					.add("metadata", metadata)
-					.add("url", "wadouri:" + uriInfo.getBaseUri() + DRIMBOX_PREFIX + "/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + currentSeriesUID + "/" + instanceUID )
+					.add("url", "wadouri:" + this.sourceHost + "/" + "api/source" + "/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + currentSeriesUID + "/" + instanceUID )
 			);
 
 		}
@@ -354,6 +389,13 @@ public class DRIMboxSourceAPI {
 		return Response.ok(root.build().toString()).build();
 	}
 
+	/**
+	 * Retrieve each images from the pacs during a call to DB source viewer
+	 * @param studyUID
+	 * @param seriesUID
+	 * @param instanceUID
+	 * @return
+	 */
 	// TODO : add authentification
 	@GET
 	@Path(DICOM_FILE_PREFIX + "/{studyUID}/{seriesUID}/{instanceUID}")
@@ -369,35 +411,7 @@ public class DRIMboxSourceAPI {
 
 		return RestResponse.ok(dicomFiles.get(0));
 	}
-
-	@GET
-	@Path("/studies/{studyUID}/series/{seriesUID}/metadata")
-	@Produces("application/dicom+json")
-	public RestResponse<String> drimboxMetadataRequest(String studyUID, String seriesUID) {
-		String url = getWadoUrl() + "/" + STUDIES_PREFIX +"/" + studyUID + "/" + SERIES_PREFIX + "/" + seriesUID + "/" + METADATA_PREFIX;
-
-		return requestHelper.stringRequest(url, this::getPacsConnection);
-	}
-
-	@GET
-	@Path("/studies/{studyUID}/series")
-	@Produces("application/dicom+json")
-	public RestResponse<String> drimboxSeriesRequest(String studyUID) {
-		String url = getWadoUrl() + "/" + STUDIES_PREFIX + "/" + studyUID + "/" + SERIES_PREFIX;
-
-		return requestHelper.stringRequest(url, this::getPacsConnection);
-	}
-
-	@GET
-	@Path("/wado")
-	@Produces("application/dicom")
-	public RestResponse<byte[]> drimboxWadoURI(@Context UriInfo uriInfo) {
-		String url = requestHelper.constructUrlWithParam(getWadoURIUrl(), uriInfo);
-
-		return requestHelper.fileRequest(url, this::getPacsConnection);
-	}
-
-
+	
 	private HttpURLConnection getPacsConnection(String pacsUrl) throws RequestErrorException  {
 		try {
 			final URL url = new URL(pacsUrl);
@@ -449,10 +463,7 @@ public class DRIMboxSourceAPI {
 	private String getWadoUrl() {
 		return pacsUrl + "/" + wadoSuffix;
 	}
-	// Get wado URI url (e.g. http://localhost:8080/dcm4chee-arc/aets/AS_RECEIVED/wado)
-	private String getWadoURIUrl() {
-		return pacsUrl + "/" + wadoURISuffix;
-	}
+
 
 
 

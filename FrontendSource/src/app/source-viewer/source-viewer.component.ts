@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CookieService } from 'ngx-cookie-service';
+import { environment } from '../../environments/environment';
+
 @Component({
   selector: 'app-source-viewer',
   templateUrl: './source-viewer.component.html',
@@ -22,12 +24,10 @@ export class SourceViewerComponent implements OnInit {
    * @param route to manage angular routes
    */
   constructor(private readonly http: HttpClient, private readonly cookieService: CookieService, private readonly route: ActivatedRoute) {
-
     this.route.queryParams.subscribe(params => {
       if (params['requestType'] !== undefined && params['studyUID'] !== undefined && params['accessionNumber'] !== undefined && params['idCDA'] !== undefined) {
-
+        console.log("valid parameters")
         this.studyUID = params['studyUID'];
-
         this.cookieService.set("requestType", params['requestType']);
         this.cookieService.set("studyUID", this.studyUID);
         this.cookieService.set("accessionNumber", params['accessionNumber']);
@@ -48,7 +48,8 @@ export class SourceViewerComponent implements OnInit {
    * Verify with backend if user connected
    * */
   verifyConnection() {
-    this.http.get('/api/auth', { responseType: 'text' }).subscribe(data => {
+    console.log("verifyConnection");
+    this.http.get('/api-source/auth', { responseType: 'text' }).subscribe(data => {
       // Back can answer : connected -- means user is already connected
       //                   connected but no structure : + list structs -- means user is already connected but activity struct no selected, gives list of user structs
       //                   no connected : + url -- means user is not connected, gives url to ProSanteConnect
@@ -65,8 +66,8 @@ export class SourceViewerComponent implements OnInit {
           this.display = true;
         }
         else {
-          window.location.replace("http://localhost:3000/viewer/" + this.cookieService.get("studyUID") + "?requestType=" + this.cookieService.get("requestType") + "&accessionNumber=" +
-            this.cookieService.get("accessionNumber") + "&idCDA=" + this.cookieService.get("idCDA"));
+          window.location.replace("/viewer/dicomjson?url=http://" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID") + "?idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+            this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"));
         }
       }
     });
@@ -80,8 +81,8 @@ export class SourceViewerComponent implements OnInit {
 
     if (this.connected) {
       // To OHIF
-      window.location.replace("http://localhost:3000/viewer/" + this.cookieService.get("studyUID") + "?requestType=" + this.cookieService.get("requestType") + "&accessionNumber=" +
-        this.cookieService.get("accessionNumber") + "&idCDA=" + this.cookieService.get("idCDA"));
+      window.location.replace("/viewer/dicomjson?url=http://" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID") + "?idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+      this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"));
     }
     else {
       // To PSC

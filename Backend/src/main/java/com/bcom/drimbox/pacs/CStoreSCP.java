@@ -32,8 +32,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -41,10 +39,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-
 import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 import org.dcm4che3.io.DicomEncodingOptions;
@@ -68,6 +64,8 @@ import org.dcm4che3.util.StreamUtils;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class CStoreSCP {
@@ -86,8 +84,9 @@ public class CStoreSCP {
 	private String aet;
 
 	private String boundary;
-
+	private String ins;
 	private ApplicationEntity ae;
+
 
 	private List<String> ts;
 
@@ -153,11 +152,11 @@ public class CStoreSCP {
 
 
 	public Multi<byte[]> getResponseStream() {
-		Instant startTime = Instant.now();
+		//Instant startTime = Instant.now();
 		return Multi.createFrom().emitter( em -> {
 			// Emit a new image when received
 			eventBus.consumer(EB_IMAGE_ADDRESS).handler(m-> {
-				Log.info("Pacs cmove Time : " + Duration.between(startTime, Instant.now()).toString());
+				//Log.info("Pacs cmove Time : " + Duration.between(startTime, Instant.now()).toString());
 				em.emit((byte[]) m.body());
 			});
 
@@ -177,6 +176,10 @@ public class CStoreSCP {
 		this.boundary = boundary;
 	}
 
+	public void setIns( String ins) {
+		this.ins = ins;
+	}
+	
 	/**
 	 * Set transfer syntax
 	 */
@@ -211,7 +214,7 @@ public class CStoreSCP {
 		if (!this.checkTransferSyntax(tsuid)) {
 			DCMTranscoder dcm2Dcm = new DCMTranscoder();
 			try {
-				dcm2Dcm.setTransferSyntax(ts.get(0));
+				dcm2Dcm.setTransferSyntax(ts.get(0), this.ins);
 				output.write(dcm2Dcm.transcode(input).toByteArray());
 			} catch (InterruptedException e) {
 				Log.error("Can't transcode current input stream");
@@ -222,11 +225,21 @@ public class CStoreSCP {
 			Attributes dataset;
 			DicomOutputStream dos = null;
 			try (DicomInputStream dis = new DicomInputStream(input)) {
-
 				dis.setIncludeBulkData(IncludeBulkData.URI);
 				fmi = dis.readFileMetaInformation();
 				dataset = dis.readDataset();
-				dataset.setString(Tag.OtherPatientIDs, VR.LO, "1234");
+				Sequence otherPatientIDsSequence = dataset.newSequence(Tag.OtherPatientIDsSequence, 1);
+				Attributes seqOthers = new Attributes();
+				seqOthers.setString(Tag.PatientID, VR.LO, this.ins);
+				seqOthers.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
+
+				Sequence issuerOfPatientIDQualifiersSequences = seqOthers.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
+				Attributes seqIssuers = new Attributes();
+				seqIssuers.setString(Tag.UniversalEntityID, VR.UT, "1.2.250.1.213.1.4.10");
+				seqIssuers.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+				issuerOfPatientIDQualifiersSequences.add(seqIssuers);
+				otherPatientIDsSequence.add(seqOthers);
+				
 				dos = new DicomOutputStream(output, tsuid);
 				dos.setEncodingOptions(DicomEncodingOptions.DEFAULT);
 				dos.writeDataset(fmi, dataset);

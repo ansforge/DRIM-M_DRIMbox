@@ -2,15 +2,43 @@ version: '3.8'
 
 services:
   # Drimbox
-   frontend:
-    image: drimbox-source:latest
-    ports:
-      - 443:443
-      
    drimbox-conso:
     build:
       context: ../../Backend
     ports:
       - 8081:8081
     environment:
+      DRIMBOX_MODE: conso
+      JAVA_OPTIONS: "-Dquarkus.http.port=8081"
+
+   drimbox-source:
+    build:
+      context: ../../Backend
+    ports:
+      - 8082:8082
+      - 8090:8090
+    environment:
       DRIMBOX_MODE: source
+      JAVA_OPTIONS: "-Dquarkus.http.port=8082 -Dpacs.baseUrl=http://172.28.2.33:8080"
+
+   front-conso:
+    image: front-conso:latest
+    ports:
+      - 8086:8086
+
+   front-source:
+    image: front-source:latest
+    ports:
+      - 8083:8083
+  
+   viewer-ohif:
+    image: viewer-ohif:latest
+    ports:
+      - 3000:80
+    environment:
+      - PUBLIC_URL=http://localhost:3000/viewer/
+
+   reverse-proxy:
+    image: reverse-proxy:latest
+    ports:
+      - 4200:4200

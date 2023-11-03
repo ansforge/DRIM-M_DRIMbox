@@ -27,35 +27,45 @@
 
 package com.bcom.drimbox.api;
 
-import com.bcom.drimbox.dmp.xades.file.KOSFile;
-import com.bcom.drimbox.utils.exceptions.RequestErrorException;
-import io.quarkus.logging.Log;
-import io.smallrye.mutiny.Uni;
-import com.bcom.drimbox.dmp.auth.WebTokenAuth;
-import com.bcom.drimbox.pacs.PacsCache;
-import com.bcom.drimbox.utils.RequestHelper;
-import io.vertx.core.Vertx;
-import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.Tag;
-import org.dcm4che3.io.DicomInputStream;
-import org.dcm4che3.util.TagUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.resteasy.reactive.RestResponse;
-
-import jakarta.inject.Inject;
-import jakarta.json.*;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.*;
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayInputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
-import static com.bcom.drimbox.utils.PrefixConstants.*;
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Tag;
+import org.dcm4che3.io.DicomInputStream;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.resteasy.reactive.RestResponse;
+
+import com.bcom.drimbox.dmp.auth.WebTokenAuth;
+import com.bcom.drimbox.dmp.xades.file.KOSFile;
+import com.bcom.drimbox.pacs.PacsCache;
+import com.bcom.drimbox.utils.RequestHelper;
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
+
+import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.Vertx;
+import jakarta.inject.Inject;
+import jakarta.json.Json;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 
-@Path("/")
+@Path("/api/conso")
 public class DRIMboxConsoAPI {
 
 	@Inject
@@ -90,79 +100,6 @@ public class DRIMboxConsoAPI {
 		this.vertx = vertx;
 	}
 
-
-	@GET
-	@Path("wado/{drimboxSourceURL}")
-	@Produces("application/dicom")
-	public Uni<RestResponse<byte[]>> wadoRequest(String drimboxSourceURL, @Context UriInfo uriInfo) {
-
-		if (!checkAuthorization())
-			return Uni.createFrom().item(requestHelper.getDeniedFileResponse(401));
-
-		MultivaluedMap<String, String> params = uriInfo.getQueryParameters();
-		String studyUID = params.get("studyUID").get(0);
-		String seriesUID = params.get("seriesUID").get(0);
-		String instanceUID = params.get("objectUID").get(0);
-
-		Log.info("[WADO] Request : " + instanceUID);
-
-		try {
-			Future<byte[]> future = pacsCache.getDicomFile(studyUID, seriesUID, instanceUID);
-			return Uni.createFrom().future(future).onItem().transform(
-					item -> {
-						Log.info("[WADO] Response : " + instanceUID);
-						return RestResponse.ResponseBuilder.ok(item).build();
-					}
-					);
-		} catch (Exception e) {
-			// TODO : Is this really fatal ?
-			Log.fatal("Can't get file from cache");
-			return Uni.createFrom().item(requestHelper.getDeniedFileResponse());
-		}
-	}
-
-	@GET
-	@Path("rs/{drimboxSourceURL}/studies/{studyUID}")
-	public RestResponse<byte[]> studyRequest(String drimboxSourceURL, String studyUID) {
-		return seriesRequest(drimboxSourceURL, studyUID, "");
-	}
-
-
-	@GET
-	@Path("rs/{drimboxSourceURL}/studies/{studyUID}/series/{seriesUID}")
-	//@Produces(MediaType.MULTIPART_FORM_DATA)
-	public RestResponse<byte[]> seriesRequest(String drimboxSourceURL, String studyUID, String seriesUID) {
-		String url = HTTP_PROTOCOL + drimboxSourceURL + "/" + DRIMBOX_PREFIX + "/" + STUDIES_PREFIX + "/" + studyUID;
-		if (!seriesUID.isEmpty()) {
-			url += "/series/" + seriesUID;
-		}
-
-		return requestHelper.fileRequest(url, this::getDrimboxConnection);
-	}
-
-	@GET
-	@Path("rs/{drimboxSourceURL}/studies/{studyUID}/series")
-	@Produces("application/dicom+json")
-	public RestResponse<String> seriesListRequest(String drimboxSourceURL, String studyUID) {
-		String url = HTTP_PROTOCOL + drimboxSourceURL + "/" + DRIMBOX_PREFIX + "/" + STUDIES_PREFIX + "/" + studyUID + "/" + SERIES_PREFIX;
-		return requestHelper.stringRequest(url, this::getDrimboxConnection);
-	}
-
-	@GET
-	@Path("rs/{drimboxSourceURL}/studies/{studyUID}/series/{seriesUID}/metadata")
-	@Produces("application/dicom+json")
-	public RestResponse<String> metadataRequest(String drimboxSourceURL, String studyUID, String seriesUID) {
-		String url = HTTP_PROTOCOL + drimboxSourceURL + "/" + DRIMBOX_PREFIX + "/" + STUDIES_PREFIX + "/" + studyUID;
-		if (!seriesUID.isEmpty()) {
-			url += "/series/" + seriesUID;
-		}
-		String sopInstanceUID = "";
-		// This is non-blocking operation
-		pacsCache.addNewEntry(drimboxSourceURL, getAccessToken(), studyUID, seriesUID, sopInstanceUID);
-
-		return requestHelper.stringRequest(url + "/" + METADATA_PREFIX, this::getDrimboxConnection);
-	}
-
 	private String getAccessToken() {
 		String accessToken = "noAuthDebugOnly";
 		if (!noAuth) {
@@ -170,42 +107,6 @@ public class DRIMboxConsoAPI {
 		}
 		return accessToken;
 	}
-
-	@Produces(MediaType.APPLICATION_JSON)
-	@GET
-	@Path("ohifmetadata/{drimboxSourceUrl}")
-	public String getOHIFMetadata(@Context UriInfo uriInfo, String drimboxSourceUrl) {
-
-		JsonObjectBuilder root = Json.createObjectBuilder();
-		JsonObjectBuilder servers = Json.createObjectBuilder();
-		JsonArrayBuilder dicomWebArray = Json.createArrayBuilder();
-		JsonObjectBuilder dicomWebObject =  Json.createObjectBuilder();
-
-		dicomWebObject.add("name", "DCM4CHEE");
-
-		dicomWebObject.add("wadoUriRoot", uriInfo.getBaseUri() + "wado/" + drimboxSourceUrl);
-		dicomWebObject.add("wadoRoot", uriInfo.getBaseUri() + "rs/" + drimboxSourceUrl);
-		dicomWebObject.add("qidoRoot", uriInfo.getBaseUri() + "rs/" + drimboxSourceUrl);
-
-		// Those are here for debug purpose in case something is wrong with the forwarding
-		//        dicomWebObject.add("wadoUriRoot", "http://localhost:8012/dcm4chee-arc/aets/AS_RECEIVED/wado");
-		//        dicomWebObject.add("qidoRoot", "http://localhost:8012/dcm4chee-arc/aets/AS_RECEIVED/rs");
-		//        dicomWebObject.add("wadoRoot", "http://localhost:8012/dcm4chee-arc/aets/AS_RECEIVED/rs");
-
-		// Todo : Test wadoRS for imageRendering
-		dicomWebObject.add("imageRendering", "wadouri");
-		dicomWebObject.add("thumbnailRendering", "wadouri");
-		dicomWebObject.add("enableStudyLazyLoad", true);
-		dicomWebObject.add("qidoSupportsIncludeField", true);
-
-		dicomWebArray.add(dicomWebObject);
-		servers.add("dicomWeb", dicomWebArray);
-		root.add("servers", servers);
-
-		return root.build().toString();
-	}
-
-
 
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
@@ -224,7 +125,7 @@ public class DRIMboxConsoAPI {
 //		} catch (IOException e) {
 //			throw new RuntimeException(e);
 //		}
-
+		Log.info("ere");
 		if (kos == null) {
 			final String errorMessage = "Can't find KOS associated with study UID " + studyUID;
 			Log.error(errorMessage);
@@ -251,8 +152,10 @@ public class DRIMboxConsoAPI {
 			URL u = new URL(seriesInfo.retrieveURL);
 			String protocol = u.getProtocol();
 			String authority = u.getAuthority();
-			drimboxSourceURL = String.format("%s://%s", protocol, authority);
-
+			String path = u.getPath().split("/studies")[0].substring(1);
+			//drimboxSourceURL = String.format("%s://%s", protocol, authority);
+			drimboxSourceURL = String.format("%s://%s/%s", protocol, authority, path);
+			Log.info(drimboxSourceURL);
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 			return Uni.createFrom().item(Response.ok(e.getMessage()).status(500).build());
@@ -326,7 +229,7 @@ public class DRIMboxConsoAPI {
 				// Add to the instance list
 				instancesArray.add(Json.createObjectBuilder()
 						.add("metadata", metadata)
-						.add("url", "dicomweb:" + uriInfo.getBaseUri() + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentInstanceUID )
+						.add("url", "dicomweb:" +"/api/conso/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentInstanceUID )
 				);
 			}
 
@@ -397,114 +300,6 @@ public class DRIMboxConsoAPI {
 		return Uni.createFrom().future(completableFuture);
 	}
 
-	@Produces(MediaType.APPLICATION_JSON)
-	@GET
-	@Path("ohifv3metadata/{drimboxSourceURL}/{studyUID}/{seriesUID}/{sopInstanceUID}")
-	public Response getOHIFv3Metadata(@Context UriInfo uriInfo, String drimboxSourceURL, String studyUID, String seriesUID, String sopInstanceUID) {
-		// TODO : this is direct access to the contents and will be removed in the future
-
-		// Note : This will also populate the cache
-		// First see if we can get the metadata from the source
-		// TODO : check auth
-		String url = HTTP_PROTOCOL + drimboxSourceURL + "/" + DRIMBOX_PREFIX + "/" + STUDIES_PREFIX + "/" + studyUID;
-		if (!seriesUID.isEmpty()) {
-			url += "/series/" + seriesUID;
-		}
-		var response = requestHelper.stringRequest(url + "/" + METADATA_PREFIX, this::getDrimboxConnection);
-
-		int responseCode = response.getStatus();
-		String responseMessage = response.getEntity();
-		switch(responseCode) {
-			case 502:
-			case 504:
-				return Response.ok(responseMessage).status(responseCode).build();
-			case 404:
-				return Response.ok(String.format("Series %s (study : %s) not found at %s", seriesUID, studyUID, drimboxSourceURL)).status(responseCode).build();
-			case 200:
-				break;
-			default:
-				return Response.ok(String.format("Error when retrieving metadata at %s for %s / %s / %s. Reason : %s", drimboxSourceURL, studyUID, seriesUID, sopInstanceUID, responseMessage)).status(responseCode).build();
-		}
-
-
-		// Add series to the cache
-		// This is non-blocking operation
-		pacsCache.addNewEntry(drimboxSourceURL, getAccessToken(), studyUID, seriesUID, sopInstanceUID);
-
-
-		// Read metadata from server
-		var jsonReader = Json.createReader(new StringReader(responseMessage));
-		JsonArray dicomMetadata = jsonReader.readArray();
-
-
-		JsonObjectBuilder root = Json.createObjectBuilder();
-		JsonArrayBuilder studiesArray = Json.createArrayBuilder();
-		JsonArrayBuilder seriesArray = Json.createArrayBuilder();
-		JsonArrayBuilder instancesArray = Json.createArrayBuilder();
-
-		JsonObjectBuilder seriesObject = Json.createObjectBuilder();
-		seriesObject.add("SeriesInstanceUID", seriesUID);
-
-		for(Object dicomInstanceMetadata : dicomMetadata) {
-			JsonObject currentInstanceJson = (JsonObject) dicomInstanceMetadata;
-			Function<Integer, String> getStringField = (var tag) ->  currentInstanceJson.getJsonObject(TagUtils.toHexString(tag)).getJsonArray("Value").getString(0);
-			Function<Integer, Integer> getIntField = (var tag) ->  currentInstanceJson.getJsonObject(TagUtils.toHexString(tag)).getJsonArray("Value").getInt(0);
-
-			JsonObjectBuilder metadata = Json.createObjectBuilder();
-			String instanceUID = getStringField.apply(Tag.SOPInstanceUID);
-			metadata.add("SOPInstanceUID", instanceUID);
-			metadata.add("SeriesInstanceUID", getStringField.apply(Tag.SeriesInstanceUID));
-			metadata.add("StudyInstanceUID", getStringField.apply(Tag.StudyInstanceUID));
-			metadata.add("SOPClassUID", getStringField.apply(Tag.SOPClassUID));
-			metadata.add("Modality", getStringField.apply(Tag.Modality));
-			metadata.add("Columns", getIntField.apply(Tag.Columns));
-			metadata.add("Rows", getIntField.apply(Tag.Rows));
-			metadata.add("PixelRepresentation", getIntField.apply(Tag.PixelRepresentation));
-			metadata.add("BitsAllocated", getIntField.apply(Tag.BitsAllocated));
-			metadata.add("BitsStored", getIntField.apply(Tag.BitsStored));
-			metadata.add("SamplesPerPixel", getIntField.apply(Tag.SamplesPerPixel));
-			metadata.add("HighBit", getIntField.apply(Tag.HighBit));
-			metadata.add("PhotometricInterpretation", getStringField.apply(Tag.PhotometricInterpretation));
-			metadata.add("InstanceNumber", getStringField.apply(Tag.InstanceNumber));
-
-
-
-			// Add to the instance list
-			instancesArray.add(Json.createObjectBuilder()
-					.add("metadata", metadata)
-					.add("url", "dicomweb:" + uriInfo.getBaseUri() + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + instanceUID )
-			);
-		}
-		seriesObject.add("instances", instancesArray);
-		seriesObject.add("Modality", "CT");
-		seriesArray.add(seriesObject);
-
-		JsonObjectBuilder study = Json.createObjectBuilder();
-		study.add("StudyInstanceUID", studyUID);
-		study.add("series", seriesArray);
-		study.add("NumInstances", dicomMetadata.size());
-
-		study.add("StudyDate", "20000101");
-		study.add("StudyTime", "");
-		study.add("PatientName", "");
-		study.add("PatientID", "LOL");
-		study.add("AccessionNumber", "");
-		study.add("PatientAge", "");
-		study.add("PatientSex", "");
-		study.add("StudyDescription", "");
-		// TODO handle modalities (maybe not necessary ?)
-		study.add("Modalities", "CT");
-
-		studiesArray.add(study);
-
-		root.add("studies", studiesArray);
-
-		return Response.ok(root.build().toString()).build();
-	}
-
-
-	// Note : this method create a JSON for OHIF AND populate the cache
-
 	@GET
 	@Path(DICOM_FILE_PREFIX + "/{studyUID}/{seriesUID}/{instanceUID}")
 	//@Produces("application/dicom")
@@ -549,52 +344,15 @@ public class DRIMboxConsoAPI {
 		return authHeader.replace("Bearer ", "");
 	}
 
-	private HttpURLConnection getDrimboxConnection(String drimboxUrl) throws RequestErrorException {
-
-		try {
-			Log.info("Check auth with cookie ID...");
-			if (!checkAuthorization()) {
-				throw new RequestErrorException("Cookie ID is not valid", 401);
-			}
-			Log.info("Auth is ok.");
-
-			final URL url = new URL(drimboxUrl);
-
-			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-			connection.setRequestMethod("GET");
-
-			if (!noAuth)
-				connection.setRequestProperty("Authorization", webTokenAuth.getAccessToken(getCookieID()).getRawAccessToken());
-
-			int responseCode = connection.getResponseCode();
-
-			switch (responseCode) {
-				case 502:
-					throw new RequestErrorException("Pacs failed to respond", responseCode);
-				case 504:
-					throw new RequestErrorException("Pacs timeout", responseCode);
-				case 200:
-				case 206:
-					break;
-				default:
-					throw new RequestErrorException("DRIMbox request failed with code " + responseCode, responseCode);
-			}
-
-			return connection;
-		} catch (ProtocolException e) {
-			throw new RequestErrorException("ProtocolException : " + e.getMessage(), 500);
-		} catch (MalformedURLException e) {
-			throw new RequestErrorException("MalformedURLException : " + e.getMessage(), 500);
-		} catch (ConnectException e) {
-			Log.error(String.format("DRIMbox at %s is not responding.", drimboxUrl));
-			Log.error(String.format("Error : %s", e.getMessage()));
-
-			throw new RequestErrorException("DRIMbox source is not responding.", 502);
-		} catch (IOException e) {
-			throw new RequestErrorException("IOException : " + e.getMessage(), 500);
-		}
-
-
+	@POST
+	@Path("/importKOS")
+	@Produces(MediaType.TEXT_XML)
+	public void addKos(byte[] requestBody)  {
+		Log.info(requestBody);
+		KOSFile kos = new KOSFile(requestBody);
+		Log.info("Import kos");
+		Log.info("kos.studyInstanceUID : " + kos.getStudyUID());
+		DmpAPI.setKOS(kos);
 	}
 }
 

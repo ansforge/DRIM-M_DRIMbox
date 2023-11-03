@@ -26,6 +26,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import * as dicomParser from 'dicom-parser';
+import { environment } from '../../environments/environment';
 
 /**
  * Enum for mimeTypes
@@ -107,6 +108,8 @@ export class DocumentsService {
   studyInstanceLocal = '';
   // Value of last serie opened
   serieInstanceLocal = '';
+
+  retrieveurlLocal = '';
   // Boolean indicates if import panel opened from serie or study level
   openImportSerie = false;
 
@@ -136,7 +139,7 @@ export class DocumentsService {
     this.cdaDocs = [];
     this.kosDocs = [];
     // Get request to backend
-    this.http.get(`/api/query/${ins}`, { responseType: 'text' }).subscribe(data => {
+    this.http.get(`/api/conso/dmp/query/${ins}`, { responseType: 'text' }).subscribe(data => {
       this.parsing3_1Response(data);
     },
       err => {
@@ -180,7 +183,7 @@ export class DocumentsService {
       filterparam += `&accessionNumber=${accessionNumber}`;
     }
 
-    this.http.get(`/api/query/${ins}?${filterparam.substr(1)}`, { responseType: 'text' }).subscribe(data => {
+    this.http.get(`/api/conso/dmp/query/${ins}?${filterparam.substr(1)}`, { responseType: 'text' }).subscribe(data => {
       this.parsing3_1Response(data);
     },
       err => {
@@ -250,6 +253,7 @@ export class DocumentsService {
    * Find for each cda the kos with the same accession number
    * */
   FindKosForCda(cda) {
+
     // Sort documents to have cda in first
     this.kosDocs.forEach(function (kosDoc) {
       if (kosDoc.accessionNumber === cda.accessionNumber) {
@@ -260,10 +264,11 @@ export class DocumentsService {
             cda.modalite += "et " + modal;
           }
         });
-
-        if (cda.region.search(kosDoc.region) === -1) {
-          cda.region += "et " + kosDoc.region;
-        }
+        kosDoc.region.split("et ").forEach(function (regi) {
+          if (cda.region.search(regi) === -1) {
+            cda.region += "et " + regi;
+          }
+        });
       }
     });
     cda.modalite = cda.modalite.substr(3);
@@ -341,13 +346,13 @@ export class DocumentsService {
 
       // Retrieve list of modality and regions from metadata
       metadataDoc.split("urn:uuid:2c6b8cb7-8b2a-4051-b291-b1ae6a575ef4").forEach(function (event) {
-
+        console.log(event);
         if (event.split("<ns4:Value>")[1].split("</ns4:Value>")[0] === "1.2.250.1.213.1.1.5.618" && modal.search(event.split("nodeRepresentation=\"")[1].split("\"")[0]) === -1) {
           modal += `et ${event.split("nodeRepresentation=\"")[1].split("\"")[0]}  `;
         }
 
-        else if (event.split("<ns4:Value>")[1].split("</ns4:Value>")[0] === "1.2.250.1.213.1.1.5.695" && region.search(event.split(" value=\"")[1].split("\"")[0]) === -1) {
-          region += `et ${event.split("value=\"")[1].split("\"")[0]}  `;
+        else if (event.split("<ns4:Value>")[1].split("</ns4:Value>")[0] === "1.2.250.1.213.2.5" && region.search(event.split(" value=\"")[1].split("\"")[0]) === -1) {
+          region += `et ${event.split("value=\"")[1].split("\"")[0]} `;
         }
 
       });
@@ -369,7 +374,7 @@ export class DocumentsService {
           retrieveURL: ''
         }]
       }
-
+      console.log(temp.region);
       temp.series.pop();
       // Adding kos document in array
       this.kosDocs.push(temp);
@@ -398,7 +403,7 @@ export class DocumentsService {
       doc.display = !doc.display;
       // Verify we didn't already import the kos
       // Get request to backend to retrieve kos associated to cda accession number
-      this.http.get(`/api/retrieve/${this.ins}?repositoryId=${doc.repositoryId}&uniqueId=${doc.uniqueId}`,
+      this.http.get(`/api/conso/dmp/retrieve/${this.ins}?repositoryId=${doc.repositoryId}&uniqueId=${doc.uniqueId}`,
         { responseType: 'arraybuffer' as 'json' }).subscribe(data => {
           // Parsing kos received
           this.parsing3_2Response(data, type, doc);
@@ -408,7 +413,7 @@ export class DocumentsService {
     // Verify we didn't already import the cda
     else if (type === "study" && doc.rapports.length === 0) {
       // Get request to backend to retrieve cda
-      this.http.get(`/api/retrieve/${this.ins}?repositoryId=${doc.repositoryId}&uniqueId=${doc.uniqueId}`,
+      this.http.get(`/api/conso/dmp/retrieve/${this.ins}?repositoryId=${doc.repositoryId}&uniqueId=${doc.uniqueId}`,
         { responseType: 'arraybuffer' as 'json' }).subscribe(data => {
           // Parsing cda received
           this.parsing3_2Response(data, type, doc);
@@ -444,16 +449,43 @@ export class DocumentsService {
    */
   parsingKos(response, type, doc) {
     // Convert byteArray response to string
-    const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
-    // Find start of kos
-    const startKOS = responseString.search('DICM') - 128;
-    response = response.slice(startKOS);
-    const byteArray = new Uint8Array(response);
+    console.log(doc);
+    let byteArray;
+    if (type != "import") {
+      const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
+
+      // Find start of kos
+      const startKOS = responseString.search('DICM') - 128;
+      response = response.slice(startKOS);
+      byteArray = new Uint8Array(response);
+    }
+    else {
+      const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
+      byteArray = new Uint8Array(response);
+      
+      this.http.post('/api-conso/addKos', response, {
+        responseType: 'text',
+      }).subscribe(
+        data => {
+          console.log("wesh");
+        },
+        error => {
+          console.log("Error", error, responseString);
+        },
+        () => {
+          console.log("POST is completed");
+        });
+      }
     try {
       // Parse the byte array to get a DataSet object that has the parsed contents
       const dataSet = dicomParser.parseDicom(byteArray);
-      if (type === "serie") {
-        const desc = dataSet.string('x0040a160');
+      let desc = "";
+      if (type === "serie" || type === "import") {
+        dataSet.elements['x0040a730'].items.forEach(function (serie) {
+          if(serie.dataSet.string('x0040a040') === "TEXT"){
+            desc = serie.dataSet.string('x0040a160');
+          }
+        });
         doc.description = dataSet.string('x00081030');
         doc.sopInstance = dataSet.string('x00080018');
         const dataSetSeries = dataSet.elements['x0040a375'].items[0].dataSet.elements['x00081115'].items;
@@ -462,7 +494,7 @@ export class DocumentsService {
           doc.series.push({
             serieDescription: desc.split(serie.dataSet.string('x0020000e') + ' : ')[1].split(' : ')[1].split('\n')[0],
             nbImages: serie.dataSet.elements['x00081199'].items.length,
-            serieModalite: desc.split(serie.dataSet.string('x0020000e') + ' :')[1].split(' : ')[0],
+            serieModalite: desc.split(serie.dataSet.string('x0020000e') + ' :')[1].split(' @')[0],
             serieLocation: 'Tête',
             retrieveURL: serie.dataSet.string('x00081190')
           });
@@ -524,14 +556,11 @@ export class DocumentsService {
     // Need this to get auth ohif beforehand (transmit the cookie value to the backend)
     // TODO : Change this and pass the cookie to the OHIF metadata (see backend for details)
     let urlRetrieve = retrieveURL;
-    console.log("527 : " + sopInstance);
-    const drimboxConso = "localhost:8082";
-    const drimboxSource = "172.17.185.143:8083";
-    const viewerURL = "localhost:3000";
+    const drimboxConso = environment.hostconso;
     if (retrieveURL.includes("series")) {
-      urlRetrieve = retrieveURL.split("/studies/")[1].split("/series")[0];
+      urlRetrieve = retrieveURL.split("/studies/")[1].split("/series")[0] + "/" + retrieveURL.split("/series/")[1];
     }
-    window.open(`http://${viewerURL}/viewer/dicomjson?url=http://${drimboxConso}/ohifv3metadata/${drimboxSource}/${urlRetrieve}/${sopInstance}`, '_blank');
+    window.open(`/viewer/dicomjson?url=http://${drimboxConso}/api/conso/ohifv3metadata/${urlRetrieve}/${sopInstance}`, '_blank');
     //window.open(`http://${viewerURL}/viewer?url=${urlRetrieve}`, '_blank');
   }
 
@@ -541,10 +570,10 @@ export class DocumentsService {
   ImportStow() {
     const drimboxSource = "localhost:8082";
     if (!this.openImportSerie) {
-      this.http.get(`/api/stow/${drimboxSource}?studyUID=${this.studyInstanceLocal}`).subscribe(data => console.log("data"));
+      this.http.get(`/api-conso/stow?drimboxSourceURL=${this.retrieveurlLocal}&studyUID=${this.studyInstanceLocal}`).subscribe(data => console.log("data"));
     }
     else {
-      this.http.get(`/api/stow/${drimboxSource}?studyUID=${this.studyInstanceLocal}&serieUID=${this.serieInstanceLocal}`).subscribe(data => console.log("data"));
+      this.http.get(`/api-conso/stow?drimboxSourceURL=${this.retrieveurlLocal}&studyUID=${this.studyInstanceLocal}&serieUID=${this.serieInstanceLocal}`).subscribe(data => console.log("data"));
     }
   }
 
@@ -555,6 +584,7 @@ export class DocumentsService {
   openFormStudy(doc): void {
     // Retrieve clicked studyInstanceId
     this.studyInstanceLocal = doc.retrieveURL;
+    this.retrieveurlLocal = doc.retrieveURL.split("studies/")[0];
     this.disp = true;
     this.openImportSerie = false;
   }
@@ -565,6 +595,7 @@ export class DocumentsService {
    */
   openFormSerie(serie): void {
     // Retrieve clicked studyInstanceId and serieInstanceId
+    this.retrieveurlLocal = serie.retrieveURL.split("studies/")[0];
     this.studyInstanceLocal = serie.retrieveURL.split("studies/")[1].split("/")[0];
     this.serieInstanceLocal = serie.retrieveURL.split("series/")[1].split("/")[0];
     this.disp = true;
@@ -591,6 +622,74 @@ export class DocumentsService {
     // Try retrieve the pdf if exists
     else {
       this.td3_2(doc, "study");
+    }
+  }
+
+  onFileSelect(input) {
+    if (input.files && input.files[0]) {
+      var reader = new FileReader();
+      reader.onload = (e: any) => {
+        console.log('Got here: ', e.target.result);
+
+
+
+        const temp2 = {
+          uniqueId: '',
+          repositoryId: '',
+          modalite: '',
+          region: '',
+          display: false,
+          retrieveURL: '',
+          accessionNumber: '',
+          mimeType: '',
+          sopInstance: '',
+          series: [{
+            serieDescription: '',
+            nbImages: '',
+            serieModalite: '',
+            serieLocation: '',
+            retrieveURL: ''
+          }]
+        }
+
+        temp2.series.pop();
+        // Adding kos document in array
+        this.kosDocs.push(temp2);
+
+
+        const temp = {
+          uniqueId: '',
+          repositoryId: '',
+          mimeType: '',
+          description: 'import',
+          dateExam: '',
+          modalite: '',
+          region: '',
+          retrieveURL: '',
+          display: false,
+          accessionNumber: '',
+          sopInstance: '',
+          refKos: [{
+            kos: null
+          }],
+          rapports: [{
+            pdfValue: '',
+            auteur: '',
+            description: ''
+          }]
+        }
+        // Pop kos ref and rapports from temp
+        temp.refKos.pop();
+        temp.rapports.pop();
+        // Add document in our cda document list
+
+
+        this.parsingKos(e.target.result, "import", temp2);
+        temp.refKos.push({ kos: temp2 });
+        this.cdaDocs.push(temp);
+
+      }
+      console.log(reader.readAsArrayBuffer(input.files[0]));
     }
   }
 }

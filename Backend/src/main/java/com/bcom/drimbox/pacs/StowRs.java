@@ -45,7 +45,7 @@ import com.bcom.drimbox.utils.PrefixConstants;
 
 import io.quarkus.logging.Log;
 
-@Path("/api")
+@Path("/api/conso")
 public class StowRs {
 
 	// Stow url (e.g. http://localhost:8080/dcm4chee-arc/aets/DCM4CHEE/rs/studies)
@@ -69,8 +69,8 @@ public class StowRs {
 	 * @param serieUID if present to only stow this serie
 	 * @throws Exception
 	 */
-	@Path("/stow/{drimboxSourceURL}")
-	public void stow(String drimboxSourceURL, @QueryParam("studyUID") String studyUID, @QueryParam("serieUID") String serieUID) throws Exception {
+	@Path("/export")
+	public void stow(@QueryParam("drimboxSourceURL") String drimboxSourceURL, @QueryParam("studyUID") String studyUID, @QueryParam("serieUID") String serieUID) throws Exception {
 
 		try {
 			// Map of transfersStyntaxes and q paramaters associated
@@ -86,13 +86,17 @@ public class StowRs {
 					UID.MPEG2MPHL, "0.3",
 					UID.MPEG4HP41BD, "0.3");
 			// Db source URL to ask study 
-			String serviceURL = DRIMboxConsoAPI.HTTP_PROTOCOL + drimboxSourceURL + "/" + PrefixConstants.DRIMBOX_PREFIX + "/" + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + serieUID;
+			Log.info("dbSource : " + drimboxSourceURL);
+			String serviceURL = drimboxSourceURL + PrefixConstants.STUDIES_PREFIX + "/" + studyUID + "/series/" + serieUID;
 			final URL url = new URL(serviceURL);
+			Log.info(url);
 			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 		    for (Map.Entry<String, String> entry : transferSyntaxes.entrySet()) {
 				connection.addRequestProperty("Accept", "multipart/related; type=\"application/dicom\";transfer-syntax="+entry.getKey()+";q="+entry.getValue()+";boundary="+ BOUNDARY);
 		    }
-
+		    Log.info(connection.getContentType());
+		    Log.info(connection.getResponseMessage());
+		    Log.info(connection.getResponseCode());
 			if (connection.getResponseCode() == 200) {
 				// Retrieve multipart of serie asked to Db source
 				rawMessage = connection.getInputStream().readAllBytes();

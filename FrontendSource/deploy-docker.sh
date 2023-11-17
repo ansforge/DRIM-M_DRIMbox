@@ -1,0 +1,16 @@
+
+LATEST_GIT_COMMIT=$(git log -n1 --format="%h")
+
+
+DOCKER_REGISTRY=drim-docker-local.repository.b-com.com
+DOCKER_IMAGE_NAME=front-source
+DOCKER_IMAGE_TAG=nightly-$LATEST_GIT_COMMIT
+
+docker build . -t $DOCKER_IMAGE_NAME
+
+# Tag et Push de l'image
+docker tag $DOCKER_IMAGE_NAME $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
+docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
+
+docker tag $DOCKER_IMAGE_NAME $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:latest
+docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:latest

@@ -1,11 +1,11 @@
---uuid:46b8d245-c995-413c-a059-c4838c292245Content-Type: application/xop+xml; charset=UTF-8; type="application/soap+xml"Content-Transfer-Encoding: binaryContent-ID: <root.message@cxf.apache.org>
+--uuid:ac95cc6e-f93f-413d-950c-4bf9dc273d8aContent-Type: application/xop+xml; charset=UTF-8; type="application/soap+xml"Content-Transfer-Encoding: binaryContent-ID: <root.message@cxf.apache.org>
   <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
     <soap:Header>
       <Action xmlns="http://www.w3.org/2005/08/addressing">urn:ihe:iti:2007:ProvideAndRegisterDocumentSet-bResponse</Action>
-      <MessageID xmlns="http://www.w3.org/2005/08/addressing">urn:uuid:ea9b1372-4044-4595-bb7b-b52272437ebe</MessageID>
-      <RelatesTo xmlns="http://www.w3.org/2005/08/addressing">urn:uuid:af216fcb-c0f1-4f0b-b53f-d7fb5562cc1a</RelatesTo>
+      <MessageID xmlns="http://www.w3.org/2005/08/addressing">urn:uuid:856db5d2-d672-495e-a232-6554f0c0d256</MessageID>
+      <RelatesTo xmlns="http://www.w3.org/2005/08/addressing">urn:uuid:a6ba8f7f-b214-4a2d-96f1-54293d537ce3</RelatesTo>
     </soap:Header>
     <soap:Body>
       <ns2:RegistryResponse xmlns:ns2="urn:oasis:names:tc:ebxml-regrep:xsd:rs:3.0" xmlns:ns3="urn:oasis:names:tc:ebxml-regrep:xsd:lcm:3.0" xmlns:ns4="urn:ihe:iti:xds-b:2007" xmlns:ns5="urn:oasis:names:tc:ebxml-regrep:xsd:rim:3.0" xmlns:ns6="urn:oasis:names:tc:ebxml-regrep:xsd:query:3.0" status="urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Success"/>
     </soap:Body>
-  </soap:Envelope>--uuid:46b8d245-c995-413c-a059-c4838c292245--
+  </soap:Envelope>--uuid:ac95cc6e-f93f-413d-950c-4bf9dc273d8a--

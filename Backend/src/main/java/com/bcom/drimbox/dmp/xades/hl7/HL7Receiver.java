@@ -30,6 +30,7 @@ package com.bcom.drimbox.dmp.xades.hl7;
 
 import java.util.Base64;
 
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import com.bcom.drimbox.api.DmpAPI;
@@ -96,6 +97,13 @@ public class HL7Receiver {
 			Log.info("HL7 message received");
 
 			// TODO : handle wrong message (e.g. : if OBX doesn't exists)
+			
+			String ipp = message.substring(message.indexOf("PID"));
+			ipp = ipp.substring(StringUtils.ordinalIndexOf(ipp, "|", 3), StringUtils.ordinalIndexOf(ipp, "|", 4));
+			ipp = ipp.substring(ipp.indexOf("~"), ipp.length());
+			String ippRoot = ipp.substring(1, StringUtils.ordinalIndexOf(ipp, "^", 1));
+			String ippExtension = ipp.substring(StringUtils.ordinalIndexOf(ipp, "&", 1) + 1, StringUtils.ordinalIndexOf(ipp, "^", 4));
+			String globalIpp = ippRoot + "/" + ippExtension;
 			String cda = message.substring(message.indexOf("OBX|1|"));
 			for (int i = 0; i < 5; i++) {
 				cda = cda.substring(cda.indexOf("|") + 1);
@@ -104,7 +112,8 @@ public class HL7Receiver {
 			// Decode b64 cda to string
 			byte[] rawCDAData = Base64.getDecoder().decode(cda);
 			CDAFile cdaString = new CDAFile(new String(rawCDAData));
-
+			cdaString.setOruIpp(globalIpp);
+			
 			dmpAPI.storeCDA(cdaString);
 		}
 		else {

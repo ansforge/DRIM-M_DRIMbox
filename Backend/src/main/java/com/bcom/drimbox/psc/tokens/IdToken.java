@@ -31,7 +31,7 @@ import jakarta.json.JsonObject;
 
 public class IdToken extends PscToken {
 
-
+	private String rawIdToken;
 	private String aud;
 	private String atHash;
 	private String subjectNameID;
@@ -43,6 +43,7 @@ public class IdToken extends PscToken {
 	public IdToken(String token) {
 		super(token);
 		JsonObject jsonObject = decodeJWTToJsonObject(token);
+		this.rawIdToken = token;
 		this.aud = jsonObject.getString("aud", "");
 		this.atHash = jsonObject.getString("at_hash", "");
 		this.subjectNameID = jsonObject.getString("family_name", "");
@@ -107,5 +108,13 @@ public class IdToken extends PscToken {
 
 	public void setPreferredUsername(String preferredUsername) {
 		this.preferredUsername = preferredUsername;
+	}
+
+	public String getRawIdToken() {
+		return rawIdToken;
+	}
+
+	public void setRawIdToken(String rawIdToken) {
+		this.rawIdToken = rawIdToken;
 	}
 }

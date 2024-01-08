@@ -17,6 +17,13 @@ export class SourceViewerComponent implements OnInit {
   isChecked = false;
   connected = false;
 
+  // displaying panel to chose activity struct
+  structurePanel = false;
+  // tab with all activity struct from the user connected
+  secteurActs: string[] = [];
+  // struct chosen by user
+  selectedStruct = '';
+
   /**
    * Constructor : manage local datas, session token and check if user connected
    * @param http for rest requests
@@ -59,15 +66,26 @@ export class SourceViewerComponent implements OnInit {
         this.connected = false;
         this.display = true;
       }
-      else if (data.startsWith("connected")) {
+      else if (data.startsWith("connected but no structure : ")) {
+        this.askStructure();
+      }
+      else if (data === "connected") {
         this.connected = true;
 
         if (localStorage.getItem('Remember') === "false" && this.studyUID !== "") {
           this.display = true;
         }
         else {
-          window.location.replace("/viewer/dicomjson?url=http://" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID") + "?idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
-            this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"));
+          this.http.get('/api/source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+            this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"), { observe: 'response' }).subscribe(data => {
+              console.log(data.body);
+              console.log(data.status);
+              if (data.status === 200) {
+                window.location.replace("/viewer/dicomjson?url=" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID"));
+              }
+              else
+                console.log(data.body);
+            });
         }
       }
     });
@@ -81,12 +99,61 @@ export class SourceViewerComponent implements OnInit {
 
     if (this.connected) {
       // To OHIF
-      window.location.replace("/viewer/dicomjson?url=http://" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID") + "?idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
-      this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"));
+      this.http.get('/api/source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+        this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"), { observe: 'response' }).subscribe(data => {
+          console.log(data.body);
+          console.log(data.status);
+          if (data.status === 200) {
+            window.location.replace("/viewer/dicomjson?url=" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID"));
+          }
+          else
+            console.log(data.body);
+        });
+
     }
     else {
       // To PSC
       window.location.replace(this.url);
+    }
+  }
+
+  /**
+* Get to back to retrieve list of user structures
+* */
+  askStructure() {
+    // Display structure panel
+    this.structurePanel = true;
+
+    this.http.get('/api-source/location', { responseType: 'text' }).subscribe(data => {
+      // Retrieve structure list
+      this.secteurActs = data.split("/");
+    });
+  }
+
+  /**
+   * Send to back structure chosen by user
+   * */
+  sendSect() {
+    // verify a structure is selected
+    if (this.selectedStruct !== undefined) {
+      this.http.post('/api-source/location', this.selectedStruct, {
+        responseType: 'text',
+        observe: 'response'
+      }).subscribe(
+        response => {
+          if (response.body!.startsWith("Success")) {
+
+            // Hide struct panel
+            this.structurePanel = false;
+            this.verifyConnection();
+          }
+        },
+        error => {
+          console.log("Error", error, this.selectedStruct);
+        },
+        () => {
+          console.log("POST is completed");
+        });
     }
   }
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://wadl.dev.java.net/2009/02">
+  <doc xml:lang="en" title="DRIMboxSample API"/>
+  <resources base="">
+    <resource path="api/source/studies/{studyUID}/series/{seriesUID}" id="/api/source/studies/{studyUID}/series/{seriesUID}">
+      <doc xml:lang="en" title="/api/source/studies/{studyUID}/series/{seriesUID}"/>
+      <param name="seriesUID" type="xs:string" required="true" default="" style="template" xmlns:xs="http://www.w3.org/2001/XMLSchema"/>
+      <param name="studyUID" type="xs:string" required="true" default="" style="template" xmlns:xs="http://www.w3.org/2001/XMLSchema"/>
+      <method name="GET" id="GET">
+        <doc xml:lang="en" title="GET"/>
+        <request>
+			<param name="Accept" style="header" required="true" default="multipart/related; type=application/dicom"/>
+			<param name="Authorization" style="header" required="true" default=""/>
+			<param name="KOS-SOPInstanceUID" style="header" required="true" default=""/>
+			<param name="Situation" style="header" required="true" default=""/>
+		</request>
+        <response status="200">
+          <representation mediaType="multipart/related; type=application/dicom"/>
+        </response>
+      </method>
+    </resource>
+  </resources>
+</application>

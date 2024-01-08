@@ -40,9 +40,12 @@ import jakarta.json.JsonReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -88,6 +91,8 @@ public class DocumentEntry extends BaseElement {
 	String accessionNumberExtension;
 	String orderRoot;
 	String orderExtension;
+	String size;
+	String hash;
 
 	public FileType getFileType() {
 		return fileType;
@@ -95,7 +100,7 @@ public class DocumentEntry extends BaseElement {
 
 	FileType fileType;
 
-	public DocumentEntry(SubmissionSet submissionSet, CDAFile cdaFile) {
+	public DocumentEntry(SubmissionSet submissionSet, CDAFile cdaFile, String uniqueID, String hash, Integer size) {
 		super();
 
 		parseCDA(cdaFile);
@@ -105,9 +110,10 @@ public class DocumentEntry extends BaseElement {
 		sourcePatientID = patientID;
 		sourcePatientInfo = new XadesType.SourcePatientInfo("", "","" );
 		entryID = "Signature01";
-		uniqueID = "1.2.250.1.999.1.1.8121." + getRandomInt(0,9) + "." + getRandomInt(0,10000);
+		this.uniqueID = uniqueID;
 		mimeType = "text/xml";
-
+		this.hash =  hash;
+		this.size = String.valueOf(size + 1);
 		legalAuthenticator = submissionSet.authors.get(0).authorPerson;
 		String currentTime = getCurrentTime();
 		submissionTime = currentTime;
@@ -201,6 +207,8 @@ public class DocumentEntry extends BaseElement {
 
 		switch(fileType) {
 		case KOS:
+			hash =  DigestUtils.sha1Hex(kos.getRawData());
+			size = String.valueOf(kos.getRawData().length);
 			mimeType = "application/dicom";
 			entryID = "DocumentKOS";
 			uniqueID =  sopInstanceUID;
@@ -262,6 +270,10 @@ public class DocumentEntry extends BaseElement {
 		extrinsicObject.appendChild(createSlotField("serviceStopTime", serviceStopTime) );
 		// sourcePatientId
 		extrinsicObject.appendChild(createSlotField("sourcePatientId", sourcePatientID) );
+
+		extrinsicObject.appendChild(createSlotField("hash", hash));
+		extrinsicObject.appendChild(createSlotField("size", size));
+
 
 		// Patient info
 		if (!sourcePatientInfo.isEmpty()) {
@@ -357,4 +369,5 @@ public class DocumentEntry extends BaseElement {
 		}
 
 	}
+
 }

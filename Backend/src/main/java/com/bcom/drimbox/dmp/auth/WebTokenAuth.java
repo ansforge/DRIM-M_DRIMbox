@@ -59,7 +59,7 @@ public class WebTokenAuth {
 		return usersMap.containsKey(cookieID);
 	}
 
-	public UUID getState(String cookieID) {
+	public String getState(String cookieID) {
 		if (!clientRegistered(cookieID))
 			return null;
 
@@ -123,6 +123,13 @@ public class WebTokenAuth {
 
 		usersMap.get(cookieID).setIdToken(idToken);
 		return true;
+	}
+	
+	public IdToken getIdToken(String cookieID) {
+		if (!clientRegistered(cookieID))
+			return null;
+
+		return usersMap.get(cookieID).getIdToken();
 	}
 
 	public boolean setAccessToken(String cookieID, AccessToken accessToken) {

@@ -62,6 +62,7 @@ public class CDAFile {
 	private String accessionNumberExtension;
 	private XadesType.ClassificationCode confidentiality; 
 	private String ipp;
+	private String oruIpp;
 
 	public String getAuthorID() {
 		return authorID;
@@ -187,7 +188,7 @@ public class CDAFile {
 
 
 			var legalAuthAttr = getElement("//legalAuthenticator/assignedEntity/id");
-			legalAuthenticator = legalAuthAttr.getAttributeValue("extension") + "^" + patientName + "^" + patientGiven + "^^^^^^&" + legalAuthAttr.getAttributeValue("root") + "&ISO^D^^^IDNPS";
+			legalAuthenticator = legalAuthAttr.getAttributeValue("extension") + "^" + stringValueOfPath("//legalAuthenticator/assignedEntity/assignedPerson/name/family") + "^" + stringValueOfPath("//legalAuthenticator/assignedEntity/assignedPerson/name/given") + "^^^^^^&" + legalAuthAttr.getAttributeValue("root") + "&ISO^D^^^IDNPS";
 
 
 			var patientIDAttr = getElement("//recordTarget/patientRole/id");
@@ -219,7 +220,7 @@ public class CDAFile {
 
 			eventCode = getClassificationCode("//documentationOf/serviceEvent/code");
 
-			this.cdaID = getElement("//id").getAttributeValue("root");
+			this.cdaID = getElement("//id").getAttributeValue("root") + "/" + getElement("//id").getAttributeValue("extension");
 
 		} catch (Exception e) {
 			Log.error("Can't parse CDA");
@@ -343,4 +344,13 @@ public class CDAFile {
 	public void setIpp(String ipp) {
 		this.ipp = ipp;
 	}
+
+	public String getOruIpp() {
+		return oruIpp;
+	}
+
+	public void setOruIpp(String oruIpp) {
+		this.oruIpp = oruIpp;
+	}
+
 }

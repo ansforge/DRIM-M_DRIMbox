@@ -16,10 +16,14 @@ services:
       context: ../../Backend
     ports:
       - 8082:8082
+      - 8084:8084
       - 8090:8090
     environment:
       DRIMBOX_MODE: source
-      JAVA_OPTIONS: "-Dquarkus.http.port=8082 -Dpacs.baseUrl=http://172.28.2.33:8080"
+      JAVA_OPTIONS: "-Dquarkus.http.port=8082 -Dpacs.baseUrl=http://172.31.47.3:8080"
+      XDM_PATH: /XDM
+    volumes:
+      - "./XDM:/XDM"
 
    front-conso:
     image: front-conso:latest

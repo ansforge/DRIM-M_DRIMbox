@@ -195,8 +195,8 @@ public class DmpAPI {
 		try {
 			KOSFile k = new KOSFile(c);
 			ProvideAndRegisterRequest request = new ProvideAndRegisterRequest(c, k);
-
-			if ( ! databaseManager.addEntity(c, k, request.getRequest().getBytes())) {
+			String requestValid = request.getRequest().split("<0.1>\n")[1].split("--")[0];
+			if ( ! databaseManager.addEntity(c, k, requestValid.getBytes(), request.getSignDoc().getBytes())) {
 				Log.error("Can't add KOS to BDD. Study UID : " + c.getStudyID());
 			}
 

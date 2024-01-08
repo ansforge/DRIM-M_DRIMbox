@@ -74,6 +74,8 @@ public class DRIMboxConsoAPI {
 	@Inject
 	RequestHelper requestHelper;
 
+	@ConfigProperty(name = "conso.host")
+	String consoHost;
 
 	/**
 	 * Http protocol (may be changed later to https://)
@@ -125,7 +127,6 @@ public class DRIMboxConsoAPI {
 //		} catch (IOException e) {
 //			throw new RuntimeException(e);
 //		}
-		Log.info("ere");
 		if (kos == null) {
 			final String errorMessage = "Can't find KOS associated with study UID " + studyUID;
 			Log.error(errorMessage);
@@ -229,7 +230,7 @@ public class DRIMboxConsoAPI {
 				// Add to the instance list
 				instancesArray.add(Json.createObjectBuilder()
 						.add("metadata", metadata)
-						.add("url", "dicomweb:" +"/api/conso/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentInstanceUID )
+						.add("url", "dicomweb:" + this.consoHost  +"/api/conso/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentInstanceUID )
 				);
 			}
 

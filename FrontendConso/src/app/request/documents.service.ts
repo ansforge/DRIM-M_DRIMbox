@@ -463,7 +463,7 @@ export class DocumentsService {
       const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
       byteArray = new Uint8Array(response);
       
-      this.http.post('/api-conso/addKos', response, {
+      this.http.post('/api/conso/importKOS', response, {
         responseType: 'text',
       }).subscribe(
         data => {

@@ -38,9 +38,11 @@ public class SourceEntity extends PanacheEntityBase {
     public String studyUID;
 
     public String cdaID;
+    public String ipp;
 
     public byte[] rawKOS;
     public byte[] rawCDA;
+    public byte[] signDOC;
 
     public byte[] rawMetadata;
 }

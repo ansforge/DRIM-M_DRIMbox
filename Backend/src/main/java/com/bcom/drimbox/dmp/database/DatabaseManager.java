@@ -30,6 +30,7 @@ package com.bcom.drimbox.dmp.database;
 import com.bcom.drimbox.dmp.xades.file.CDAFile;
 import com.bcom.drimbox.dmp.xades.file.KOSFile;
 
+import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 
@@ -43,15 +44,42 @@ public class DatabaseManager {
      * @return true if success, false otherwise (e.g. studyUID already exists)
      */
     @Transactional
-    public Boolean addEntity(CDAFile cdaFile, KOSFile kosFile,  byte[] rawMetadata) {
+    public Boolean addEntity(CDAFile cdaFile, KOSFile kosFile,  byte[] rawMetadata, byte[] signDOC) {
         try {
             SourceEntity s = new SourceEntity();
             s.studyUID = cdaFile.getStudyID();
             s.rawCDA = cdaFile.getRawData();
             s.rawKOS = kosFile.getRawData();
             s.cdaID = cdaFile.getCdaID();
-
+            s.ipp = cdaFile.getOruIpp();
             s.rawMetadata = rawMetadata;
+            s.signDOC = signDOC;
+            s.persistAndFlush();
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+    
+    /***
+     * Add an entity to the database
+     * @param cdaFile CDA file to store
+     * @param kosFile KOS file to store
+     * @return true if success, false otherwise (e.g. studyUID already exists)
+     */
+    @Transactional
+    public Boolean addEntity( byte[] kosFile,  byte[] rawMetadata, byte[] signDoc, String studyInstanceUID, String cdaID, String ipp) {
+        try {
+            SourceEntity s = new SourceEntity();
+            s.studyUID = studyInstanceUID;
+            s.rawCDA = null;
+            s.rawKOS = kosFile;
+            s.cdaID = cdaID;
+            s.ipp = ipp;
+            s.rawMetadata = rawMetadata;
+            s.signDOC = signDoc;
             s.persistAndFlush();
             return true;
         } catch (Exception e) {
@@ -68,5 +96,9 @@ public class DatabaseManager {
      */
     public SourceEntity getEntity(String studyUID) {
         return SourceEntity.findById(studyUID);
+    }
+    
+    public PanacheQuery<SourceEntity> getEntities() {
+    	return SourceEntity.findAll();
     }
 }

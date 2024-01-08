@@ -262,7 +262,8 @@ public class PacsCache {
 					UID.MPEG2MPHL, "0.3",
 					UID.MPEG4HP41, "0.3",
 					UID.MPEG4HP41BD, "0.3");
-			final URL url = new URL("http://172.19.45.196:4200/api/source/studies/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.3.116/series/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.6.116");
+			//final URL url = new URL("http://172.19.45.196:4200/api/source/studies/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.3.116/series/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.6.116");
+			final URL url = new URL(serviceURL);
 			Log.info("url : " + url);
 			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 

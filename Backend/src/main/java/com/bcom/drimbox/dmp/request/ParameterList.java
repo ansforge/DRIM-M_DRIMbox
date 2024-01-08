@@ -62,11 +62,11 @@ public class ParameterList {
 	private final Map<String, String> queryParams = new HashMap<>();
 
 	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "opposition", "patientID", "patientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "Opposition", "PatientID", "PatientIDIssuer"};  
 
 	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "accessionNumber", "issuer", "studyDate", "anatomicRegion", "situation", "opposition",
-			 "patientID", "patientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "Opposition",
+			 "PatientID", "PatientIDIssuer"};  
 	
 	@ConfigProperty(name="conso.host")
 	String consoHost;

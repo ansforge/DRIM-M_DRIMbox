@@ -80,6 +80,7 @@ import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.OPTIONS;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -194,10 +195,10 @@ public class DRIMboxSourceAPI {
 		}
 		List<String> preferredTransferSyntax = new ArrayList<String>();
 		for (var entry : tsMap.entrySet()) {
-		    if(Float.parseFloat(entry.getValue()) > 0.7) {
-		    	preferredTransferSyntax.add(entry.getKey());
-		    }
-		    	
+			if(Float.parseFloat(entry.getValue()) > 0.7) {
+				preferredTransferSyntax.add(entry.getKey());
+			}
+
 		}
 
 		List<String> sopInstanceUIDHeader = headers.getRequestHeader("KOS-SOPInstanceUID");
@@ -218,6 +219,14 @@ public class DRIMboxSourceAPI {
 				.build();
 	}
 
+
+	@OPTIONS
+	@Produces("application/vnd.sun.wadl+xml")
+	@Path("/studies")
+	public Response getOptions() {
+		InputStream is = getFileFromResourceAsStream("wadl/wadlconfig.wadl"); 
+		return Response.ok(is).build();
+	}
 
 	private String regexExtractor(String regex, String baseString) {
 		final Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE);
@@ -262,7 +271,7 @@ public class DRIMboxSourceAPI {
 		return false;
 	}
 
-	
+
 	/**
 	 * API to handle call to open DB source viewer. 
 	 * It generates json after a wado-rs metadata request to the pacs
@@ -274,8 +283,7 @@ public class DRIMboxSourceAPI {
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
 	@Path("metadata/{studyUID}")
-	public Response getSourceMetadata(String studyUID, @Context UriInfo uriInfo, @QueryParam("idCDA") String idCDA, 
-			@QueryParam("accessionNumber") String accessionNumber, @QueryParam("requestType") String requestType) {
+	public Response getSourceMetadata(String studyUID, @Context UriInfo uriInfo) {
 		final String pacsUrl = getWadoUrl();
 
 		String url = pacsUrl + "/" + STUDIES_PREFIX +"/" + studyUID + "/" + METADATA_PREFIX;
@@ -283,29 +291,25 @@ public class DRIMboxSourceAPI {
 
 		int responseCode = response.getStatus();
 		String responseMessage = response.getEntity();
+		Log.info(responseCode);
 		switch(responseCode) {
-			case 502:
-			case 504:
-				return Response.ok(responseMessage).status(responseCode).build();
-			case 404:
-				Log.info(studyUID + " not correct : " + studyUID);
-				return Response.ok(String.format("Study : %s not found at %s", studyUID, pacsUrl)).status(responseCode).build();
-			case 200:
-				break;
-			default:
-				return Response.ok(String.format("Error when retrieving metadata at %s for study %s. Reason : %s", pacsUrl, studyUID, responseMessage)).status(responseCode).build();
+		case 502:
+		case 504:
+			return Response.ok(responseMessage).status(responseCode).build();
+		case 404:
+			Log.info(studyUID + " not correct : " + studyUID);
+			return Response.ok(String.format("Study : %s not found at %s", studyUID, pacsUrl)).status(responseCode).build();
+		case 200:
+			break;
+		default:
+			return Response.ok(String.format("Error when retrieving metadata at %s for study %s. Reason : %s", pacsUrl, studyUID, responseMessage)).status(responseCode).build();
 		}
-		
+
 		SourceEntity entity = this.databaseManager.getEntity(studyUID);
 		if(entity == null) {
 			Log.info("No data found in database");
 		}
 
-		if(!entity.cdaID.equals(idCDA.split("_")[0])) {
-			Log.info("incorrect value between idcda in request : " + idCDA.split("_")[0] + " and idcda in bdd : " + entity.cdaID);
-			return Response.ok(String.format("incorrect idcda : %s and %s", idCDA.split("_")[0], entity.cdaID)).build();
-		}
-		
 		// Read metadata from server
 		var jsonReader = Json.createReader(new StringReader(responseMessage));
 		JsonArray dicomMetadata = jsonReader.readArray();
@@ -355,7 +359,7 @@ public class DRIMboxSourceAPI {
 			currentInstancesArray.add(Json.createObjectBuilder()
 					.add("metadata", metadata)
 					.add("url", "wadouri:" + this.sourceHost + "/" + "api/source" + "/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + currentSeriesUID + "/" + instanceUID )
-			);
+					);
 
 		}
 
@@ -389,6 +393,26 @@ public class DRIMboxSourceAPI {
 		return Response.ok(root.build().toString()).build();
 	}
 
+
+	@GET
+	@Path("check")
+	public Response checkParameters(@QueryParam("idCDA") String idCDA, @QueryParam("accessionNumber") String accessionNumber, @QueryParam("requestType") String requestType
+			, @QueryParam("studyInstanceUID") String studyInstanceUID) {
+
+		SourceEntity entity = this.databaseManager.getEntity(studyInstanceUID);
+		if(entity == null) {
+			Log.info("No data found in database");
+			return Response.status(406, "no study found in bdd").build();
+		}
+
+		if(!entity.cdaID.split("/")[0].equals(idCDA.split("_")[0])) {
+			Log.info("incorrect value between idcda in request : " + idCDA.split("_")[0] + " and idcda in bdd : " + entity.cdaID.split("/")[0]);
+			return Response.status(406, String.format("incorrect idcda : %s and %s", idCDA.split("_")[0], entity.cdaID)).build();
+		}
+
+		return Response.ok().build();
+	}
+
 	/**
 	 * Retrieve each images from the pacs during a call to DB source viewer
 	 * @param studyUID
@@ -411,7 +435,7 @@ public class DRIMboxSourceAPI {
 
 		return RestResponse.ok(dicomFiles.get(0));
 	}
-	
+
 	private HttpURLConnection getPacsConnection(String pacsUrl) throws RequestErrorException  {
 		try {
 			final URL url = new URL(pacsUrl);
@@ -428,15 +452,15 @@ public class DRIMboxSourceAPI {
 			int responseCode = connection.getResponseCode();
 
 			switch(responseCode) {
-				case 404:
-					throw new RequestErrorException("Cannot find resource", responseCode);
-				case 504:
-					throw new RequestErrorException("Pacs didn't respond in time.", responseCode);
-				case 200:
-				case 206:
-					break;
-				default:
-					throw new RequestErrorException("Pacs request failed.", responseCode);
+			case 404:
+				throw new RequestErrorException("Cannot find resource", responseCode);
+			case 504:
+				throw new RequestErrorException("Pacs didn't respond in time.", responseCode);
+			case 200:
+			case 206:
+				break;
+			default:
+				throw new RequestErrorException("Pacs request failed.", responseCode);
 			}
 
 			return connection;
@@ -466,5 +490,23 @@ public class DRIMboxSourceAPI {
 
 
 
+	/**
+	 * Get file from the resource folder
+	 * @param fileName File to load
+	 * @return Opened file
+	 */
+	private InputStream getFileFromResourceAsStream(String fileName) {
 
+		// The class loader that loaded the class
+		ClassLoader classLoader = getClass().getClassLoader();
+		InputStream inputStream = classLoader.getResourceAsStream(fileName);
+
+		// the stream holding the file content
+		if (inputStream == null) {
+			throw new IllegalArgumentException("file not found! " + fileName);
+		} else {
+			return inputStream;
+		}
+
+	}
 }

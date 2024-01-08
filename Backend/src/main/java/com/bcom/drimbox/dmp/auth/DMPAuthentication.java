@@ -160,7 +160,7 @@ public class DMPAuthentication {
 		}
 		else {
 			var responseType = "code";
-			UUID state = UUID.randomUUID();
+			String state = UUID.randomUUID().toString();
 			var nonce = UUID.randomUUID();
 
 			UserData authentServ = new UserData();

@@ -29,7 +29,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -39,7 +38,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -91,13 +95,10 @@ public class KOSFile {
 	 */
 	public KOSFile(CDAFile c) throws IOException {
 		String newPatientName = "Patient^Name";
-
 		File file = new File("ko.dcm");
 		file.createNewFile();
-
 		Attributes fmi = new Attributes();
 		Attributes attrs = new Attributes();
-
 		//Let's modify the patient name tag
 		attrs.setString(Tag.PatientName, VR.PN, newPatientName);
 		attrs.setString(Tag.Modality, VR.CS, "KO");

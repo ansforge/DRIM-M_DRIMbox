@@ -22,3 +22,22 @@
     </form>
   </div>
 </div>
+
+
+<div *ngIf="structurePanel === true">
+  <div class="form-popup">
+    <form class="form-container">
+      <h2>Situation d'exercice</h2>
+      <h3>Veuillez choisir votre situation d'exercice : </h3>
+      <select style="height: 40px;" [(ngModel)]="selectedStruct" [ngModelOptions]="{standalone: true}">
+        <option selected disabled value="undefined">----</option>
+
+        <option *ngFor="let secteurAct of secteurActs" [ngValue]="secteurAct">{{secteurAct}}</option>
+      </select>
+      <br />
+      <br />
+      <button type="button" mat-raised-button color="success" (click)="sendSect()">Choisir</button>
+    </form>
+  </div>
+</div>
+

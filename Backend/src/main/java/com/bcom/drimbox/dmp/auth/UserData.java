@@ -43,7 +43,7 @@ public class UserData {
 	private JsonObject userInfo;
 	private String secteurActivite;
 	private UUID nonce;
-	private UUID state;
+	private String state;
 
 	public AccessToken getAccessToken() {
 		return accessToken;
@@ -93,11 +93,11 @@ public class UserData {
 		this.nonce = nonce;
 	}
 
-	public UUID getState() {
+	public String getState() {
 		return state;
 	}
 
-	public void setState(UUID state) {
+	public void setState(String state) {
 		this.state = state;
 	}
 }

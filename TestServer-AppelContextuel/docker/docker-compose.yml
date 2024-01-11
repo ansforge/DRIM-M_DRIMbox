@@ -1,8 +1,11 @@
 version: '3.8'
 
 services:
-   stub:
+   appel-contextuel:
     build:
       context: ../
     ports:
-      - 80:8080
+      - 8081:8081
+    environment:
+      quarkus_http_port: 8081
+      server_hostname: http://demodrim.labs.b-com.com

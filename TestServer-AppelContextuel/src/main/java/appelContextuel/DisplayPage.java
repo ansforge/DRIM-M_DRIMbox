@@ -10,7 +10,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
-@Path("/show")
+@Path("/drim/show")
 public class DisplayPage {
 	
 	@Inject ParameterList parameterList;

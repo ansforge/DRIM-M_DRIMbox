@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import io.quarkus.logging.Log;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.POST;
@@ -26,12 +28,15 @@ public class ParameterList {
 	private final Map<String, String> queryParams = new HashMap<>();
 
 	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "opposition", "patientID", "patientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "Opposition", "PatientID", "PatientIDIssuer"};  
 
 	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "accessionNumber", "issuer", "studyDate", "anatomicRegion", "situation", "opposition",
-			 "patientID", "patientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "Opposition",
+			 "PatientID", "PatientIDIssuer"};  
 
+	@ConfigProperty(name = "server.hostname")
+	String hostname;
+	
 	/**
 	 *  Retrieve params from RIS and adding them to the cache with a uuid 
 	 * 
@@ -43,6 +48,7 @@ public class ParameterList {
 	@Produces(MediaType.TEXT_PLAIN)
 	@Path("/303")
 	public Response echo(String requestBody) throws Exception {
+
 		Log.info(requestBody);
 		boolean validParams = false;
 		queryParams.clear();
@@ -77,15 +83,15 @@ public class ParameterList {
 		}  
 
 		return Response //seeOther = 303 redirect
-				.seeOther(UriBuilder.fromUri("/show")
+				.seeOther(UriBuilder.fromUri(hostname + "/drim/show")
 						.queryParam("uuid", uuid.toString())
 						.build())//build the URL where you want to redirect
 				.build();
-			
+
 	}
-	
-	
-	
+
+
+
 	/**
 	 *  Retrieve params from RIS and adding them to the cache with a uuid 
 	 * 
@@ -96,7 +102,8 @@ public class ParameterList {
 	@POST
 	@Produces(MediaType.TEXT_PLAIN)
 	@Path("/302")
-	public Response echoBis(String requestBody) throws Exception {
+	public Response echoBis(String requestBody) throws Exception {		
+
 		Log.info(requestBody);
 		boolean validParams = false;
 		queryParams.clear();
@@ -131,8 +138,8 @@ public class ParameterList {
 		}  
 
 		return Response //seeOther = 303 redirect
-				.status(302).contentLocation(UriBuilder.fromUri("/show").queryParam("uuid", uuid.toString()).build()).build();
-			
+				.status(302).contentLocation(UriBuilder.fromUri(hostname + "/drim/show").queryParam("uuid", uuid.toString()).build()).build();
+
 	}
 
 
@@ -160,7 +167,7 @@ public class ParameterList {
 		}  
 		return valid;
 	}
-	
+
 	public  Map<String, String> getParams(String uuid){
 		return this.paramsCache.get(uuid);
 	}

@@ -14,15 +14,6 @@ Prérequis :
 ./mvnw compile quarkus:dev
 ```
 
-## Lancement
-
-L'outil est alors disponible aux urls suivantes (via un appel contextuel POST conforme aux exigences DRIMbox) :
- - `http://localhost:8080/drim/302` pour avoir une réponse HTTP 302
- - `http://localhost:8080/drim/303` pour avoir une réponse HTTP 303
-
-Les différents paramètres passés lors de l'appel POST sont alors accessibles via l'url de la forme `http://localhost:8080/show?uuid=...` indiqué dans la réponse du POST.
-
-
 ## Docker
 
 L'outil est également disponible via Docker.
@@ -37,7 +28,17 @@ Pour lancer l'outil:
 docker-compose up
 ```
 
-L'outil est alors disponible sur le port 80.
- - `http://localhost/drim/302` pour avoir une réponse HTTP 302
- - `http://localhost/drim/303` pour avoir une réponse HTTP 303
+
+## Configuration
+
+L'url de déploiement de l'application peut être configurée dans 
+ - le fichier application.properties sous la forme : `server.hostname = http://demodrim.labs.b-com.com`
+ - dans le docker-compose.yml sous la forme : `server_hostname: http://demodrim.labs.b-com.com`
+
+
+L'outil est alors disponible aux urls suivantes (via un appel contextuel POST conforme aux exigences DRIMbox) :
+ - `http://demodrim.labs.b-com.com/drim/302` pour avoir une réponse HTTP 302
+ - `http://demodrim.labs.b-com.com/drim/303` pour avoir une réponse HTTP 303
+
+ Les différents paramètres passés lors de l'appel POST sont finalement accessibles via l'url de la forme `http://demodrim.labs.b-com.com/drim/show?uuid=...` indiqué dans la réponse du POST.
 

@@ -138,29 +138,6 @@ public class DocumentEntry extends BaseElement {
 		createDocumentEntry();
 	}
 
-	private void parseCDA(CDAFile cdaFile) {
-		confidentialities.add(cdaFile.getConfidentiality());
-		Log.info(cdaFile.getConfidentiality().code);
-		if(cdaFile.getConfidentiality().code.equals("INVISIBLE_PATIENT")) {
-			confidentialities.add(new XadesType.ClassificationCode("N", "Normal", "2.16.840.1.113883.5.25" ));
-		}
-		patientID = cdaFile.getPatientID();
-		accessionNumberRoot = cdaFile.getAccessionNumberRoot();
-		accessionNumberExtension = cdaFile.getAccessionNumberExtension();
-		authors.add(new XadesType.Author(cdaFile.getAuthorInstitution(), cdaFile.getAuthorPerson(), "" ,"" ));
-		legalAuthenticator =  cdaFile.getLegalAuthenticator();
-		orderRoot = cdaFile.getOrderRoot();
-		orderExtension = cdaFile.getOrderExtension();
-		serviceStartTime = cdaFile.getServiceStartTime();
-		serviceStopTime = cdaFile.getServiceStopTime();
-		sourcePatientID = cdaFile.getSourcePatientID();
-		eventCodes.add(cdaFile.getEventCode());
-		healthcareFacilityType = cdaFile.getHealthcareFacilityType();
-		practiceSetting = cdaFile.getPracticeSetting();
-		studyID = cdaFile.getStudyID();
-		sourcePatientInfo = cdaFile.getSourcePatientInfo();
-	}
-
 	public DocumentEntry(CDAFile cdaFile, FileType fileType, KOSFile kos) throws IOException {
 		super();
 
@@ -235,11 +212,33 @@ public class DocumentEntry extends BaseElement {
 		default:
 			throw new IllegalStateException("Unexpected value: " + fileType);
 		}
-
-
-
 		createDocumentEntry();
 	}
+
+
+	private void parseCDA(CDAFile cdaFile) {
+		confidentialities.add(cdaFile.getConfidentiality());
+		if(cdaFile.getConfidentiality().code.equals("INVISIBLE_PATIENT")) {
+			confidentialities.add(new XadesType.ClassificationCode("N", "Normal", "2.16.840.1.113883.5.25" ));
+		}
+		patientID = cdaFile.getPatientID();
+		accessionNumberRoot = cdaFile.getAccessionNumberRoot();
+		accessionNumberExtension = cdaFile.getAccessionNumberExtension();
+		authors.add(new XadesType.Author(cdaFile.getAuthorInstitution(), cdaFile.getAuthorPerson(), "" ,"" ));
+		legalAuthenticator =  cdaFile.getLegalAuthenticator();
+		orderRoot = cdaFile.getOrderRoot();
+		orderExtension = cdaFile.getOrderExtension();
+		serviceStartTime = cdaFile.getServiceStartTime();
+		serviceStopTime = cdaFile.getServiceStopTime();
+		sourcePatientID = cdaFile.getSourcePatientID();
+		eventCodes.add(cdaFile.getEventCode());
+		healthcareFacilityType = cdaFile.getHealthcareFacilityType();
+		practiceSetting = cdaFile.getPracticeSetting();
+		studyID = cdaFile.getStudyID();
+		sourcePatientInfo = cdaFile.getSourcePatientInfo();
+	}
+
+
 
 
 	private void createDocumentEntry() {

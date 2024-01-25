@@ -29,6 +29,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -52,7 +53,10 @@ import org.dcm4che3.data.UID;
 import org.dcm4che3.data.VR;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomOutputStream;
+import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
 
+import com.bcom.drimbox.dmp.database.DatabaseManager;
+import com.bcom.drimbox.dmp.database.SourceEntity;
 import com.bcom.drimbox.pacs.CFindSCU;
 
 import io.quarkus.logging.Log;
@@ -67,6 +71,10 @@ public class KOSFile {
 	String studyUID;
 
 	String patientINS;
+
+	String sopInstanceUID;
+	
+	Boolean exist = false;
 
 	public static class SeriesInfo {
 		public String retrieveURL;
@@ -89,6 +97,7 @@ public class KOSFile {
 		}
 	}
 
+
 	/**
 	 * Creating kos from cda and c-find values
 	 * @param c CDAFile from hl7 message
@@ -101,6 +110,7 @@ public class KOSFile {
 		Attributes attrs = new Attributes();
 		//Let's modify the patient name tag
 		attrs.setString(Tag.PatientName, VR.PN, newPatientName);
+		attrs.setString(Tag.AccessionNumber, VR.SH, "");
 		attrs.setString(Tag.Modality, VR.CS, "KO");
 		attrs.setString(Tag.Manufacturer, VR.LO, "BCOM");
 		attrs.setString(Tag.InstitutionName, VR.CS, "BCOM");
@@ -127,7 +137,6 @@ public class KOSFile {
 		attrs.setString(Tag.SeriesTime, VR.DA, localTime.format(fmt2));
 		attrs.setString(Tag.ContentTime, VR.DA, localTime.format(fmt2));
 
-		attrs.setString(Tag.AccessionNumber, VR.SH, "");
 		attrs.setString(Tag.PatientName, VR.PN, c.getPatientName());
 		attrs.setString(Tag.OtherPatientNames, VR.PN, c.getPatientName());
 		attrs.setString(Tag.PatientID, VR.LO, c.getPatientID().concat("^").split("\\^")[0]);
@@ -211,10 +220,6 @@ public class KOSFile {
 		String accessionNumberImage = studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(0).getString(Tag.AccessionNumber);
 		String patientIDImage = studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(0).getString(Tag.PatientID);
 
-		Log.info("Access Image : " + accessionNumberImage);
-		Log.info("PatientID image : " + patientIDImage);
-
-
 		Sequence referencedSeriesSequence  = AtCurrentRequestedProcedureEvidenceSequence.newSequence(Tag.ReferencedSeriesSequence , 1);
 		String textValue = "Examen : " + studyAttrs.getString(Tag.StudyDescription) + "\n";
 		textValue += "Acte =  : " + c.getEventCode().displayName + "\n";
@@ -249,7 +254,7 @@ public class KOSFile {
 				contentSequence.add(contentAttr);
 			}
 		}
-		
+
 		Attributes contentAttr = new Attributes();
 		contentAttr.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
 		contentAttr.setString(Tag.ValueType, VR.CS, "TEXT");
@@ -262,7 +267,7 @@ public class KOSFile {
 		contentAttr.setString(Tag.TextValue, VR.UT, textValue);
 
 		contentSequence.add(contentAttr);
-		
+
 		fmi.setString(Tag.TransferSyntaxUID, VR.UI, UID.ImplicitVRLittleEndian);
 		fmi.setString(Tag.MediaStorageSOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
 		fmi.setBytes(Tag.FileMetaInformationVersion, VR.OB, new byte[] {(byte)0x00, (byte)0x01});
@@ -280,7 +285,6 @@ public class KOSFile {
 			Log.info("cda : " + c.getIpp());
 		}
 		else {
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			// Not sure about the tsuid
 			//DicomOutputStream dos = new DicomOutputStream(bos, "1.2.840.10008.1.2.1");
 			DicomOutputStream dos = new DicomOutputStream(file);
@@ -294,6 +298,106 @@ public class KOSFile {
 			parseKOS(new DicomInputStream(file));
 		}
 	}
+
+	public KOSFile(KOSFile kos) throws IOException {
+		InputStream input = new ByteArrayInputStream(kos.getRawData()); 
+		Attributes dataset;
+		Attributes fmi = new Attributes();
+		try (DicomInputStream dis = new DicomInputStream(input)) {
+			dis.setIncludeBulkData(IncludeBulkData.URI);
+			dataset = dis.readDataset();
+			String textValueOld = dataset.getSequence(Tag.ContentSequence).get(dataset.getSequence(Tag.ContentSequence).size() -1).getString(Tag.TextValue);
+			String region = textValueOld.split("Acte =  : ")[1].split("\n")[0];
+			dataset.remove(Tag.CurrentRequestedProcedureEvidenceSequence);
+			dataset.remove(Tag.ContentSequence);
+
+			// C-Find on level IMAGE to retrieve missing informations
+			this.cFindSCU = new CFindSCU();
+			Attributes studyAttrs = this.cFindSCU.CFind(dataset.getString(Tag.StudyInstanceUID), "IMAGE");
+			if(studyAttrs.size() != 0)
+			{
+				this.exist = true;
+				File file = new File("koNEW.dcm");
+				file.createNewFile();
+				dataset.setString(Tag.StudyDate, VR.DA, studyAttrs.getString(Tag.StudyDate));
+				dataset.setString(Tag.StudyTime, VR.DA, studyAttrs.getString(Tag.StudyTime));
+				dataset.setString(Tag.ReferringPhysicianName, VR.PN, studyAttrs.getString(Tag.ReferringPhysicianName));
+				dataset.setString(Tag.StudyDescription, VR.LO, studyAttrs.getString(Tag.StudyDescription));
+				dataset.setString(Tag.StudyID, VR.SH, studyAttrs.getString(Tag.StudyID));
+
+				String uniqueID = dataset.getString(Tag.SOPInstanceUID);
+				Integer incr = Integer.parseInt(uniqueID.substring(uniqueID.length() -1, uniqueID.length())) + 1;
+				uniqueID = uniqueID.substring(0, uniqueID.length() - 1 ) + incr;
+
+				dataset.remove(Tag.SOPInstanceUID);
+				dataset.setString(Tag.SOPInstanceUID, VR.UI, uniqueID);
+
+				Sequence currentRequestedProcedureEvidenceSequence  = dataset.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence , 1);
+				Attributes AtCurrentRequestedProcedureEvidenceSequence = new Attributes();
+				AtCurrentRequestedProcedureEvidenceSequence.setString(Tag.StudyInstanceUID, VR.UI, dataset.getString(Tag.StudyInstanceUID));
+
+
+				Sequence referencedSeriesSequence  = AtCurrentRequestedProcedureEvidenceSequence.newSequence(Tag.ReferencedSeriesSequence , 1);
+				String textValue = "Examen : " + studyAttrs.getString(Tag.StudyDescription) + "\n";
+				textValue += "Acte =  : " + region + "\n";
+				for (int i = 0; i < studyAttrs.getSequence(Tag.ReferencedSeriesSequence).size(); i++) {
+					textValue += "Série-" + studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).getString(Tag.SeriesInstanceUID) +
+							" : " +studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).getString(Tag.Modality) + " @  : " +studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).getString(Tag.SeriesDescription) + "\n";
+
+					studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.Modality);
+					studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.SeriesDescription);
+					studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.AccessionNumber);
+					studyAttrs.getSequence(Tag.ReferencedSeriesSequence).get(i).remove(Tag.PatientID);
+
+
+					Attributes aReferencedSeriesSequence = new Attributes();
+					aReferencedSeriesSequence.addAll(studyAttrs.getNestedDataset(Tag.ReferencedSeriesSequence, i));	
+					referencedSeriesSequence.add(aReferencedSeriesSequence);
+				}
+				currentRequestedProcedureEvidenceSequence.add(AtCurrentRequestedProcedureEvidenceSequence);
+
+				Sequence contentSequence = dataset.newSequence(Tag.ContentSequence, 1);
+
+				for (Attributes attrSeq : dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence).get(0).getSequence(Tag.ReferencedSeriesSequence)) {
+					for (Attributes attrSOP : attrSeq.getSequence(Tag.ReferencedSOPSequence)) {
+
+						Attributes contentAttr = new Attributes();
+						contentAttr.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+						contentAttr.setString(Tag.ValueType, VR.CS, "IMAGE");
+						Sequence referencedSOPSequence = contentAttr.newSequence(Tag.ReferencedSOPSequence, 1);
+						Attributes attrCopy = new Attributes();
+						attrCopy.addAll(attrSOP);
+						referencedSOPSequence.add(attrCopy);
+						contentSequence.add(contentAttr);
+					}
+				}
+
+				Attributes contentAttr = new Attributes();
+				contentAttr.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+				contentAttr.setString(Tag.ValueType, VR.CS, "TEXT");
+				Sequence conceptNameCodeSequenceTextValue = contentAttr.newSequence(Tag.ConceptNameCodeSequence, 1);
+				Attributes attrConceptNameCode = new Attributes();
+				attrConceptNameCode.setString(Tag.CodeValue, VR.SH, "113012");
+				attrConceptNameCode.setString(Tag.CodingSchemeDesignator, VR.SH, "DCM");
+				attrConceptNameCode.setString(Tag.CodeMeaning, VR.LO, "Key Object Description");
+				conceptNameCodeSequenceTextValue.add(attrConceptNameCode);
+				contentAttr.setString(Tag.TextValue, VR.UT, textValue);
+
+				contentSequence.add(contentAttr);			
+
+				dataset.setInt(Tag.InstanceNumber, VR.IS, Integer.valueOf(dataset.getString(Tag.InstanceNumber)) + 1);
+
+				fmi = dis.readFileMetaInformation();
+				DicomOutputStream dos = new DicomOutputStream(file);
+				dos.writeDataset(fmi, dataset);
+				dos.flush();
+				dos.close();
+
+				fileContent = Files.readAllBytes(file.toPath());
+			}
+		}
+	}
+
 	private String generateUUID(String type) throws UnknownHostException, SocketException {
 		InetAddress ip;
 		ip = InetAddress.getLocalHost();
@@ -335,6 +439,8 @@ public class KOSFile {
 	private void parseKOS(DicomInputStream dis) {
 		try {
 			Attributes attributes = dis.readDataset();
+
+			sopInstanceUID = attributes.getString(Tag.SOPInstanceUID);
 
 			patientINS = attributes.getString(Tag.PatientID);
 
@@ -397,9 +503,19 @@ public class KOSFile {
 	public String getStudyUID() {
 		return studyUID;
 	}
+
 	public String getPatientINS() {
 		return patientINS;
 	}
+
+	public String getSopInstanceUID() {
+		return sopInstanceUID;
+	}
+	
+	public Boolean getExist() {
+		return exist;
+	}
+
 
 	/**
 	 * A map that contains data associated with the series in the KOS

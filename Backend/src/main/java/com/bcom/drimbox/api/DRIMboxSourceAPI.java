@@ -110,7 +110,6 @@ public class DRIMboxSourceAPI {
 	@Inject
 	RequestHelper requestHelper;
 
-
 	@Inject
 	DatabaseManager databaseManager;
 

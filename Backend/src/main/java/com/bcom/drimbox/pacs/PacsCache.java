@@ -120,7 +120,7 @@ public class PacsCache {
 			else {
 				dicomCache.put(studyUID, map);
 			}
-			
+			Log.info(drimboxSourceURL);
 			try {
 				buildEntry(drimboxSourceURL, accessToken, studyUID, seriesUID, sopInstanceUID);
 				// Since something was added we set the # of added items

@@ -5,7 +5,7 @@ services:
     build:
       context: ../
     ports:
-      - 8081:8081
+      - 80:8080
     environment:
-      quarkus_http_port: 8081
+      quarkus_http_port: 8080
       server_hostname: http://demodrim.labs.b-com.com

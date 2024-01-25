@@ -55,6 +55,7 @@ import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
 import org.dcm4che3.util.UIDUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import com.bcom.drimbox.dmp.database.DatabaseManager;
@@ -78,7 +79,7 @@ public class XdmAPI {
 
 	@ConfigProperty(name = "xdm.path")
 	String xdmPath;
-	
+
 	@GET
 	@Path("/xdmExport")
 	public void exportXDM() {
@@ -129,7 +130,7 @@ public class XdmAPI {
 				String metadatas = new String(entity.rawMetadata, StandardCharsets.UTF_8);
 				Document document = builder.parse(new ByteArrayInputStream(metadatas.split("\\?>")[1].getBytes()));
 				NodeList nodeList = document.getFirstChild().getChildNodes().item(1).getFirstChild().getFirstChild().getFirstChild().getChildNodes();
-
+				int z = 1;
 				for (int j = 0; j < nodeList.getLength(); j++) {
 					if(nodeList.item(j).getNodeName().equals("ExtrinsicObject")) {
 						if(nodeList.item(j).getAttributes().getNamedItem("mimeType").getNodeValue().equals("application/dicom")) {
@@ -141,30 +142,46 @@ public class XdmAPI {
 							slotElement.appendChild(valueList);
 
 							var valueField = document.createElement("Value");
-							valueField.appendChild(document.createTextNode(pathFolder.substring(StringUtils.ordinalIndexOf(pathFolder, "/", 1) + 1, pathFolder.length()) + "/KOS.DCM"));
+							valueField.appendChild(document.createTextNode(pathFolder.substring(StringUtils.ordinalIndexOf(pathFolder, "/", 3) + 1, pathFolder.length()) + "/KOS_" + i + "_" + z + ".DCM"));
 							valueList.appendChild(valueField);
 
 							nodeList.item(j).appendChild(slotElement);
 							
+					        var externalIdentifierElement = document.createElement("ExternalIdentifier");
+					        externalIdentifierElement.setAttribute("id", "80");
+					        externalIdentifierElement.setAttribute("identificationScheme", "1.2.3");
+					        externalIdentifierElement.setAttribute("registryObject", "DocumentKOS");
+					        externalIdentifierElement.setAttribute("value", UUID.randomUUID().toString());
+					        
+					        var nameElement = document.createElement("Name");
+					        var localizedString = document.createElement("LocalizedString");
+					        localizedString.setAttribute("charset", "UTF8");
+					        localizedString.setAttribute("xml:lang", "FR");
+					        localizedString.setAttribute("value", "XDSDocumentEntry.EntryUUID");
+					        nameElement.appendChild(localizedString);
+					        
+					        externalIdentifierElement.appendChild(nameElement);
+							nodeList.item(j).appendChild(externalIdentifierElement);
 							
-							var slotElementEntry = document.createElement("Slot");
-							slotElementEntry.setAttribute("name", "entryUUID");
+						}
+						else {
+							var slotElement = document.createElement("Slot");
+							slotElement.setAttribute("name", "URI");
 
-							var valueListEntry = document.createElement("ValueList");
-							slotElementEntry.appendChild(valueListEntry);
+							var valueList = document.createElement("ValueList");
+							slotElement.appendChild(valueList);
 
-							var valueFieldEntry = document.createElement("Value");
-							valueFieldEntry.appendChild(document.createTextNode(UUID.randomUUID().toString()));
-							valueListEntry.appendChild(valueFieldEntry);
+							var valueField = document.createElement("Value");
+							valueField.appendChild(document.createTextNode(pathFolder.substring(StringUtils.ordinalIndexOf(pathFolder, "/", 3) + 1, pathFolder.length()) + "/SIGN_" + i + ".XML"));
+							valueList.appendChild(valueField);
 
-							nodeList.item(j).appendChild(slotElementEntry);
+							nodeList.item(j).appendChild(slotElement);
 						}
 					}
 				}
-				
-				int z = 1;
+
 				generateFile(pathFolder + "/METADATA.XML", XMLUtils.xmlToString(document).getBytes());
-				generateFile(pathFolder + "/KOS_" + i + z + ".DCM", entity.rawKOS);
+				generateFile(pathFolder + "/KOS_" + i + "_" + z + ".DCM", entity.rawKOS);
 				generateFile(pathFolder + "/SIGN_" + i + ".XML", entity.signDOC);
 
 				String ins = metadatas.split("urn:uuid:58a6f841-87b3-4a3e-92fd-a8ffeff98427")[1].split("value=")[1];;
@@ -202,10 +219,10 @@ public class XdmAPI {
 		File file = new File(pathFolder);
 		String[] directories = file.list((dir, name) -> new File(dir, name).isDirectory());
 		for (String directory : directories) {
-			
+
 			directory = pathFolder + "/" + directory + "/";
 			File dir = new File(directory);
-			
+
 			FilenameFilter kosFileFilter = (d, s) -> {
 				return s.toUpperCase().startsWith("KOS");
 			};

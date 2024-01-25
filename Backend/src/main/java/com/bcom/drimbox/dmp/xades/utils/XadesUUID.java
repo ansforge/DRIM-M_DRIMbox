@@ -49,5 +49,7 @@ public final class XadesUUID  {
 
     //AssociationType
     public static final String XDSAssoc_hasMember = "urn:oasis:names:tc:ebxml-regrep:AssociationType:HasMember";
+    public static final String XDSAssoc_RPLC = "urn:ihe:iti:2007:AssociationType:RPLC";
+    public static final String XDSAssoc_Update = "urn:ihe:iti:2010:AssociationType:UpdateAvailabilityStatus";
     public static final String XDSAssoc_signs = "urn:ihe:iti:2007:AssociationType:signs";
 }

@@ -13,15 +13,17 @@
       </thead>
       <tbody>
         {#for param in params} 
+        {#if param.key != 'time'} 
         <tr>
           <td style="border: 1px solid black; text-align: center; font-size:20px">{param.key}</td>
           <td style="border: 1px solid black; text-align: center; font-size:20px">{param.value}</td>
         </tr>
+        {/if}
         {/for}
       </tbody>
     </table>
     <p>
-      <script> document.write(new Date().toLocaleString()); </script>
+      {params.get("time")}
     </p>  
 </body>
 </html>

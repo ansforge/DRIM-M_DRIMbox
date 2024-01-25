@@ -32,6 +32,7 @@ import jakarta.inject.Singleton;
 
 import com.bcom.drimbox.dmp.xades.hl7.HL7Receiver;
 import com.bcom.drimbox.pacs.CStoreSCP;
+import com.bcom.drimbox.pacs.IocmCStoreSCP;
 
 import jakarta.annotation.PostConstruct;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -52,6 +53,13 @@ public class DbMain {
 	String host;
 	@ConfigProperty(name="dcm.cstore.port")
 	int port;
+	
+	@ConfigProperty(name="dcm.cstoreIOCM.AET")
+	String calledAETIOCM;
+	@ConfigProperty(name="dcm.cstoreIOCM.host")
+	String hostIOCM;
+	@ConfigProperty(name="dcm.cstoreIOCM.port")
+	int portIOCM;
 
 	@Inject
 	@CommandLineArguments
@@ -60,6 +68,10 @@ public class DbMain {
 	// Cache of instance datas
 	@Inject
 	CStoreSCP cStoreSCP;
+	
+	// Cache of instance datas
+	@Inject
+	IocmCStoreSCP iocmcStoreSCP;
 
 	// Cache of instance datas
 	@Inject
@@ -99,6 +111,7 @@ public class DbMain {
 				Log.info("Starting DrimBOX Source");
 				type = DrimBOXMode.SOURCE;
 				cStoreSCP.startCStore(calledAET, host, port);
+				iocmcStoreSCP.startCStore(calledAETIOCM, hostIOCM, portIOCM);
 				break;
 			case CONSO:
 				Log.info("Starting DrimBOX Conso");

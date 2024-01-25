@@ -37,68 +37,81 @@ import jakarta.transaction.Transactional;
 @Singleton
 public class DatabaseManager {
 
-    /***
-     * Add an entity to the database
-     * @param cdaFile CDA file to store
-     * @param kosFile KOS file to store
-     * @return true if success, false otherwise (e.g. studyUID already exists)
-     */
-    @Transactional
-    public Boolean addEntity(CDAFile cdaFile, KOSFile kosFile,  byte[] rawMetadata, byte[] signDOC) {
-        try {
-            SourceEntity s = new SourceEntity();
-            s.studyUID = cdaFile.getStudyID();
-            s.rawCDA = cdaFile.getRawData();
-            s.rawKOS = kosFile.getRawData();
-            s.cdaID = cdaFile.getCdaID();
-            s.ipp = cdaFile.getOruIpp();
-            s.rawMetadata = rawMetadata;
-            s.signDOC = signDOC;
-            s.persistAndFlush();
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+	/***
+	 * Add an entity to the database
+	 * @param cdaFile CDA file to store
+	 * @param kosFile KOS file to store
+	 * @return true if success, false otherwise (e.g. studyUID already exists)
+	 */
+	@Transactional
+	public Boolean addEntity(CDAFile cdaFile, KOSFile kosFile,  byte[] rawMetadata, byte[] signDOC) {
+		try {
+			SourceEntity s = new SourceEntity();
+			s.studyUID = cdaFile.getStudyID();
+			s.rawCDA = cdaFile.getRawData();
+			s.rawKOS = kosFile.getRawData();
+			s.cdaID = cdaFile.getCdaID();
+			s.ipp = cdaFile.getOruIpp();
+			s.rawMetadata = rawMetadata;
+			s.signDOC = signDOC;
+			s.persistAndFlush();
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-        return false;
-    }
-    
-    /***
-     * Add an entity to the database
-     * @param cdaFile CDA file to store
-     * @param kosFile KOS file to store
-     * @return true if success, false otherwise (e.g. studyUID already exists)
-     */
-    @Transactional
-    public Boolean addEntity( byte[] kosFile,  byte[] rawMetadata, byte[] signDoc, String studyInstanceUID, String cdaID, String ipp) {
-        try {
-            SourceEntity s = new SourceEntity();
-            s.studyUID = studyInstanceUID;
-            s.rawCDA = null;
-            s.rawKOS = kosFile;
-            s.cdaID = cdaID;
-            s.ipp = ipp;
-            s.rawMetadata = rawMetadata;
-            s.signDOC = signDoc;
-            s.persistAndFlush();
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+		return false;
+	}
 
-        return false;
-    }
+	/***
+	 * Add an entity to the database
+	 * @param cdaFile CDA file to store
+	 * @param kosFile KOS file to store
+	 * @return true if success, false otherwise (e.g. studyUID already exists)
+	 */
+	@Transactional
+	public Boolean addEntity( byte[] kosFile,  byte[] rawMetadata, byte[] signDoc, String studyInstanceUID, String cdaID, String ipp) {
+		try {
+			SourceEntity s = new SourceEntity();
+			s.studyUID = studyInstanceUID;
+			s.rawCDA = null;
+			s.rawKOS = kosFile;
+			s.cdaID = cdaID;
+			s.ipp = ipp;
+			s.rawMetadata = rawMetadata;
+			s.signDOC = signDoc;
+			s.persistAndFlush();
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-    /**
-     * Get KOS and CDA associated with studyUID
-     * @param studyUID Study UID
-     * @return Null if not found or assicoated exams
-     */
-    public SourceEntity getEntity(String studyUID) {
-        return SourceEntity.findById(studyUID);
-    }
-    
-    public PanacheQuery<SourceEntity> getEntities() {
-    	return SourceEntity.findAll();
-    }
+		return false;
+	}
+
+	/**
+	 * Get KOS and CDA associated with studyUID
+	 * @param studyUID Study UID
+	 * @return Null if not found or assicoated exams
+	 */
+	public SourceEntity getEntity(String studyUID) {
+		return SourceEntity.findById(studyUID);
+	}
+
+	public PanacheQuery<SourceEntity> getEntities() {
+		return SourceEntity.findAll();
+	}
+
+
+	public Boolean deleteEntity(SourceEntity s) {
+		try {
+			s.delete();
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return false;
+	}
+
 }

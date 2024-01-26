@@ -132,6 +132,11 @@ public class ParameterList {
 			// Adding query params in local map
 			this.queryParams.put(keyValuePair[0], keyValuePair[1]);
 		}
+		
+	    SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+	    Date date = new Date();  
+		this.queryParams.put("time", formatter.format(date));
+		
 		// Adding local map with uuid in Cache map
 		this.paramsCache.put(uuid.toString(), this.queryParams);
 		for ( String param: paramsMandatory)  

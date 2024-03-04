@@ -260,5 +260,5 @@ Ce message est du à une mauvaise configuration du PACS et de l'aelist. Voir la 
 
 ## Contact
 
-Pour toute information complémentaire, merci de contacter guillaume.pasquier@b-com.com et ans-forge@esante.gouv.fr
+Pour toute information complémentaire, merci de contacter ans-forge@esante.gouv.fr
 

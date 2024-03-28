@@ -258,14 +258,14 @@ Content-ID: <0.1>
                   <LocalizedString charset="UTF8" value="Document de Références d'objets d'imagerie selon profil IHE RAD XDS-I" xml:lang="FR"/>
                 </Name>
               </Classification>
-              <Classification classificationScheme="urn:uuid:f33fb8ac-18af-42cc-ae0e-ed0b0bdb91e1" classifiedObject="DocumentKOS" id="cla53" nodeRepresentation="SA25">
+              <Classification classificationScheme="urn:uuid:f33fb8ac-18af-42cc-ae0e-ed0b0bdb91e1" classifiedObject="DocumentKOS" id="cla53" nodeRepresentation="SA01">
                 <Slot name="codingScheme">
                   <ValueList>
                     <Value>1.2.250.1.71.4.2.4</Value>
                   </ValueList>
                 </Slot>
                 <Name>
-                  <LocalizedString charset="UTF8" value="Laboratoire de biologie médicale" xml:lang="FR"/>
+                  <LocalizedString charset="UTF8" value="Etablissement public de santé" xml:lang="FR"/>
                 </Name>
               </Classification>
               <Classification classificationScheme="urn:uuid:cccf5598-8b07-4b77-a05e-ae952c785ead" classifiedObject="DocumentKOS" id="cla54" nodeRepresentation="AMBULATOIRE">
@@ -440,14 +440,14 @@ Content-ID: <0.1>
                   <LocalizedString charset="UTF8" value="Default Signature Style" xml:lang="FR"/>
                 </Name>
               </Classification>
-              <Classification classificationScheme="urn:uuid:f33fb8ac-18af-42cc-ae0e-ed0b0bdb91e1" classifiedObject="Signature01" id="cla64" nodeRepresentation="SA25">
+              <Classification classificationScheme="urn:uuid:f33fb8ac-18af-42cc-ae0e-ed0b0bdb91e1" classifiedObject="Signature01" id="cla64" nodeRepresentation="SA01">
                 <Slot name="codingScheme">
                   <ValueList>
                     <Value>1.2.250.1.71.4.2.4</Value>
                   </ValueList>
                 </Slot>
                 <Name>
-                  <LocalizedString charset="UTF8" value="Laboratoire de biologie médicale" xml:lang="FR"/>
+                  <LocalizedString charset="UTF8" value="Etablissement public de santé" xml:lang="FR"/>
                 </Name>
               </Classification>
               <Classification classificationScheme="urn:uuid:cccf5598-8b07-4b77-a05e-ae952c785ead" classifiedObject="Signature01" id="cla65" nodeRepresentation="AMBULATOIRE">

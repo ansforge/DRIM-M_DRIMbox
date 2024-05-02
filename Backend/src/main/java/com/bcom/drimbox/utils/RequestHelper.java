@@ -37,20 +37,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.bcom.drimbox.pacs.PacsCache;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import jakarta.ws.rs.core.MultivaluedMap;
-import jakarta.ws.rs.core.UriInfo;
-
-import com.bcom.drimbox.utils.exceptions.RequestErrorException;
 import org.dcm4che3.mime.MultipartParser;
 import org.jboss.resteasy.reactive.RestResponse;
 
 import com.bcom.drimbox.pacs.CMoveSCU;
+import com.bcom.drimbox.utils.exceptions.RequestErrorException;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.UriInfo;
 
 @Singleton
 public class RequestHelper {
@@ -212,13 +210,13 @@ public class RequestHelper {
 			List<byte[]> fileList = new ArrayList<>();
 
 			new MultipartParser(boundary).parse(new BufferedInputStream(connection.getInputStream()), (partNumber, multipartInputStream) -> {
-						Map<String, List<String>> headerParams = multipartInputStream.readHeaderParams();
-						try {
-							//Log.info("Image time : " + Duration.between(startTime, Instant.now()).toString());
-							fileList.add(multipartInputStream.readAllBytes());
-						} catch (Exception e) {
-							Log.fatal("Failed to process Part #" + partNumber + headerParams, e);
-						}
+				Map<String, List<String>> headerParams = multipartInputStream.readHeaderParams();
+				try {
+					//Log.info("Image time : " + Duration.between(startTime, Instant.now()).toString());
+					fileList.add(multipartInputStream.readAllBytes());
+				} catch (Exception e) {
+					Log.fatal("Failed to process Part #" + partNumber + headerParams, e);
+				}
 			});
 
 
@@ -230,18 +228,16 @@ public class RequestHelper {
 		}
 	}
 
-	public Multi<byte[]> fileRequestCMove(String pacsUrl, List<String> supportedTransferSyntax, List<String> preferredTransferSyntax, String boundary) {
+	public Multi<byte[]> fileRequestCMove(String pacsUrl, List<String> supportedTransferSyntax, List<String> preferredTransferSyntax, String boundary, String config) {
 		String studyUID = pacsUrl.split("/studies/")[1].split("/")[0];
 		String serieUID = pacsUrl.split("/series/")[1].split("/")[0];
 
 		try {
-			return cMoveSCU.cMove(studyUID, serieUID, supportedTransferSyntax, preferredTransferSyntax, boundary);
+			return cMoveSCU.cMove(studyUID, serieUID, supportedTransferSyntax, preferredTransferSyntax, boundary, config);
 		} catch (Exception e) {
 			logError("CMove request", "cMove " + studyUID + " / " + serieUID, e.getMessage());
 
 			return Multi.createFrom().empty();
 		}
 	}
-
-
 }

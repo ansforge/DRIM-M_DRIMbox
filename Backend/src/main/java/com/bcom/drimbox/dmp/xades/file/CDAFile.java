@@ -63,7 +63,8 @@ public class CDAFile {
 	private XadesType.ClassificationCode confidentiality; 
 	private String ipp;
 	private String oruIpp;
-
+	private String addr;
+	
 	public String getAuthorID() {
 		return authorID;
 	}
@@ -221,6 +222,8 @@ public class CDAFile {
 			eventCode = getClassificationCode("//documentationOf/serviceEvent/code");
 
 			this.cdaID = getElement("//id").getAttributeValue("root") + "/" + getElement("//id").getAttributeValue("extension");
+			
+			this.addr = stringValueOfPath("//recordTarget/patientRole/patient/birthplace/place/addr/county");
 
 		} catch (Exception e) {
 			Log.error("Can't parse CDA");
@@ -351,6 +354,14 @@ public class CDAFile {
 
 	public void setOruIpp(String oruIpp) {
 		this.oruIpp = oruIpp;
+	}
+
+	public String getAddr() {
+		return addr;
+	}
+
+	public void setAddr(String addr) {
+		this.addr = addr;
 	}
 
 }

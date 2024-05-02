@@ -61,6 +61,7 @@ public class PacsCache {
 		// Instance UID => file
 		Map<String, byte[]> dicomFiles = new HashMap<>();
 		Boolean complete = false;
+		int size = 0;
 	}
 
 	// StudyUID =>
@@ -73,10 +74,10 @@ public class PacsCache {
 	//  - SeriesUID
 	//  - SeriesUID
 	Map<String, Map<String, DicomCacheInstance>> dicomCache = new HashMap<>();
-	
+
 	// Boundary for multipart request
 	private static final String BOUNDARY = "myBoundary";
-	
+
 	private final Vertx vertx;
 
 
@@ -212,6 +213,7 @@ public class PacsCache {
 		return completableFuture;
 	}
 
+
 	/**
 	 * Checks if some instance UID are still waiting and mark them a not found. This will not affect valid cached images.
 	 * It also set all instanceUID that are not already to an empty image marking them as not found.
@@ -262,7 +264,7 @@ public class PacsCache {
 					UID.MPEG2MPHL, "0.3",
 					UID.MPEG4HP41, "0.3",
 					UID.MPEG4HP41BD, "0.3");
-			//final URL url = new URL("http://172.19.45.196:4200/api/source/studies/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.3.116/series/1.3.6.1.4.1.5962.99.1.3711725607.829148806.1687338938407.6.116");
+			//final URL url = new URL("http://172.31.217.227:4200/api/source/studies/1.3.6.1.4.1.5962.99.1.1428784845.25655993.1693645932237.5.116/series/1.3.6.1.4.1.5962.99.1.1428784845.25655993.1693645932237.6.116");
 			final URL url = new URL(serviceURL);
 			Log.info("url : " + url);
 			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -286,19 +288,19 @@ public class PacsCache {
 
 			// Trigger exception if something went wrong
 			switch(connection.getResponseCode()) {
-				case 200:
-				case 206:
-					break;
-				case 404:
-					throw new RequestErrorException("Series (or study) cannot be found ", 404);
-				default:
+			case 200:
+			case 206:
+				break;
+			case 404:
+				throw new RequestErrorException("Series (or study) cannot be found ", 404);
+			default:
 				//	throw new RequestErrorException("Error : " + connection.getErrorStream().readAllBytes(), connection.getResponseCode());
-					Log.warn("ohif : " + connection.getResponseCode());
+				Log.warn("ohif : " + connection.getResponseCode());
 
 			}
 			Log.info("content-Type : " + connection.getContentType());
 			Log.info("Response message : " + connection.getResponseMessage());
-			
+
 			String boundary = boundaryManager.getBoundary(connection.getContentType());
 			if (boundary == null) {
 				Log.fatal("Invalid response. Unpacking of parts not possible.");
@@ -358,7 +360,7 @@ public class PacsCache {
 			// We don't have any rest code for Multi<> types yet, so we need to do this workaround
 			// + special code for this error since it's not a specific 404
 			throw new RequestErrorException("SOPInstance not found in database", 1404);
-		// Allow to throw RequestErrorException in the body
+			// Allow to throw RequestErrorException in the body
 		} catch (RequestErrorException e) {
 			throw e;
 		} catch (Exception e) {

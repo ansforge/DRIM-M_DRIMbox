@@ -103,7 +103,7 @@ public class CMoveSCU {
 	}
 
 
-	public Multi<byte[]> cMove(String studyUID, String serieUID, List<String> supportedTransferSyntax, List<String> preferredTransferSyntax, String boundary)  {
+	public Multi<byte[]> cMove(String studyUID, String serieUID, List<String> supportedTransferSyntax, List<String> preferredTransferSyntax, String boundary, String mode)  {
 		//Instant startTime = Instant.now();
 		// We start the cmove in another thread so we can return the Multi as soon as possible
 		vertx.executeBlocking(promise -> {
@@ -115,8 +115,8 @@ public class CMoveSCU {
 					String ins = retrieveINS(studyUID);
 					Log.info("ins : " + ins);
 
-
 					cStoreSCP.resetMultipart();
+					cStoreSCP.setConfig(mode);
 					cStoreSCP.setPreferredTransferSyntax(preferredTransferSyntax);
 					cStoreSCP.setSupportedTransferSyntax(supportedTransferSyntax);
 					cStoreSCP.setBoundary(boundary);

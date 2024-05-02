@@ -110,9 +110,12 @@ public class CFindSCU {
 				this.keys.setString(Tag.SeriesInstanceUID, VR.SH, "*");
 				this.keys.setString(Tag.SOPInstanceUID, VR.SH, "*");
 				this.keys.setString(Tag.SOPClassUID, VR.SH, "");
+				this.keys.setString(Tag.InstanceNumber, VR.IS, "");
+				this.keys.setString(Tag.NumberOfFrames, VR.IS, "");
 				this.keys.setString(Tag.Modality, VR.SH, "*");
 				this.keys.setString(Tag.AccessionNumber, VR.SH, "");
 				this.keys.setString(Tag.PatientID, VR.LO, "");
+				this.keys.setString(Tag.SeriesNumber, VR.IS, "");
 			}
 			
 			try {
@@ -209,6 +212,8 @@ public class CFindSCU {
 						Attributes attrsReferencedSop = new Attributes();
 						attrsReferencedSop.setString(Tag.ReferencedSOPClassUID, VR.UI, data.getString(Tag.SOPClassUID));
 						attrsReferencedSop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, data.getString(Tag.SOPInstanceUID));
+						attrsReferencedSop.setString(Tag.InstanceNumber, VR.IS, data.getString(Tag.InstanceNumber));
+						attrsReferencedSop.setString(Tag.NumberOfFrames, VR.IS, data.getString(Tag.NumberOfFrames));
 						ReferencedSOPSequence.add(attrsReferencedSop);
 					}
 				}
@@ -221,6 +226,7 @@ public class CFindSCU {
 					attrsReferenced.setString(Tag.SeriesDescription, VR.UR, data.getString(Tag.SeriesDescription));
 					attrsReferenced.setString(Tag.AccessionNumber, VR.SH, data.getString(Tag.AccessionNumber));
 					attrsReferenced.setString(Tag.PatientID, VR.LO, data.getString(Tag.PatientID));
+					attrsReferenced.setString(Tag.SeriesNumber, VR.IS, data.getString(Tag.SeriesNumber));
 					attrsReferenced.setString(Tag.SeriesInstanceUID, VR.UI, data.getString(Tag.SeriesInstanceUID));
 					referencedSeriesSequence.add(attrsReferenced);
 
@@ -240,6 +246,7 @@ public class CFindSCU {
 				attrsReferenced.setString(Tag.SeriesDescription, VR.UR, data.getString(Tag.SeriesDescription));
 				attrsReferenced.setString(Tag.AccessionNumber, VR.SH, data.getString(Tag.AccessionNumber));
 				attrsReferenced.setString(Tag.PatientID, VR.LO, data.getString(Tag.PatientID));
+				attrsReferenced.setString(Tag.SeriesNumber, VR.IS, data.getString(Tag.SeriesNumber));
 				attrsReferenced.setString(Tag.SeriesInstanceUID, VR.UI, data.getString(Tag.SeriesInstanceUID));
 				referencedSeriesSequence.add(attrsReferenced);
 
@@ -247,6 +254,8 @@ public class CFindSCU {
 				Attributes attrsReferencedSop = new Attributes();
 				attrsReferencedSop.setString(Tag.ReferencedSOPClassUID, VR.UI, data.getString(Tag.SOPClassUID));
 				attrsReferencedSop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, data.getString(Tag.SOPInstanceUID));
+				attrsReferencedSop.setString(Tag.InstanceNumber, VR.IS, data.getString(Tag.InstanceNumber));
+				attrsReferencedSop.setString(Tag.NumberOfFrames, VR.IS, data.getString(Tag.NumberOfFrames));
 				ReferencedSOPSequence.add(attrsReferencedSop);
 			}
 		}

@@ -76,12 +76,12 @@ export class SourceViewerComponent implements OnInit {
           this.display = true;
         }
         else {
-          this.http.get('/api/source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+          this.http.get('/api-vi1-source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
             this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"), { observe: 'response' }).subscribe(data => {
               console.log(data.body);
               console.log(data.status);
               if (data.status === 200) {
-                window.location.replace("/viewer/dicomjson?url=" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID"));
+                window.location.replace("/viewer/dicomjson?url=" + environment.hostsource + "/api-vi1-source/metadata/" + this.cookieService.get("studyUID"));
               }
               else
                 console.log(data.body);
@@ -99,12 +99,12 @@ export class SourceViewerComponent implements OnInit {
 
     if (this.connected) {
       // To OHIF
-      this.http.get('/api/source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
+      this.http.get('/api-vi1-source/check' + "?studyInstanceUID=" + this.cookieService.get("studyUID") + "&idCDA=" + this.cookieService.get("idCDA") + "&accessionNumber=" +
         this.cookieService.get("accessionNumber") + "&requestType=" + this.cookieService.get("requestType"), { observe: 'response' }).subscribe(data => {
           console.log(data.body);
           console.log(data.status);
           if (data.status === 200) {
-            window.location.replace("/viewer/dicomjson?url=" + environment.sourcehost + "/api/source/metadata/" + this.cookieService.get("studyUID"));
+            window.location.replace("/viewer/dicomjson?url=" + environment.hostsource + "/api-vi1-source/metadata/" + this.cookieService.get("studyUID"));
           }
           else
             console.log(data.body);

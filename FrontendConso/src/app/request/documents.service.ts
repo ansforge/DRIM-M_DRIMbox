@@ -451,6 +451,7 @@ export class DocumentsService {
     // Convert byteArray response to string
     console.log(doc);
     let byteArray;
+    // TODO optimize search DICM
     if (type != "import") {
       const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
 
@@ -460,7 +461,7 @@ export class DocumentsService {
       byteArray = new Uint8Array(response);
     }
     else {
-      const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
+      //const responseString = String.fromCharCode.apply(null, new Uint8Array(response));
       byteArray = new Uint8Array(response);
       
       this.http.post('/api/conso/importKOS', response, {
@@ -470,7 +471,7 @@ export class DocumentsService {
           console.log("wesh");
         },
         error => {
-          console.log("Error", error, responseString);
+          console.log("Error", error, "a");
         },
         () => {
           console.log("POST is completed");
@@ -560,7 +561,7 @@ export class DocumentsService {
     if (retrieveURL.includes("series")) {
       urlRetrieve = retrieveURL.split("/studies/")[1].split("/series")[0] + "/" + retrieveURL.split("/series/")[1];
     }
-    window.open(`/viewer/dicomjson?url=http://${drimboxConso}/api/conso/ohifv3metadata/${urlRetrieve}/${sopInstance}`, '_blank');
+    window.open(`/viewer/dicomjson?url=${drimboxConso}/api/conso/ohifv3metadata/${urlRetrieve}/${sopInstance}`, '_blank');
     //window.open(`http://${viewerURL}/viewer?url=${urlRetrieve}`, '_blank');
   }
 

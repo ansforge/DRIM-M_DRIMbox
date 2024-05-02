@@ -62,10 +62,10 @@ public class ParameterList {
 	private final Map<String, String> queryParams = new HashMap<>();
 
 	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "Opposition", "PatientID", "PatientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "InformationEtOppositionConsultation", "PatientID", "PatientIDIssuer"};  
 
 	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "Opposition",
+			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "InformationEtOppositionConsultation",
 			 "PatientID", "PatientIDIssuer"};  
 	
 	@ConfigProperty(name="conso.host")
@@ -115,11 +115,11 @@ public class ParameterList {
 		}  
 
 		// Redirect to viewer if studyinstanceUIDs in query params
-		if(this.queryParams.containsKey("studyInstanceUID")) {
+		if(this.queryParams.containsKey("StudyInstanceUID")) {
 			String drimboxConso = "localhost:8081";
 			String drimboxSource = "localhost:8082";
 			String viewerURL = "localhost:3000";
-			return Response.ok("http://"+viewerURL+"/viewer?url=http://"+drimboxConso+"/ohifmetadata/"+drimboxSource+"&studyInstanceUIDs=" + this.queryParams.get("studyInstanceUID")).build();
+			return Response.ok("http://"+viewerURL+"/viewer?url=http://"+drimboxConso+"/ohifmetadata/"+drimboxSource+"&studyInstanceUID=" + this.queryParams.get("StudyInstanceUID")).build();
 		}		
 		else
 		{

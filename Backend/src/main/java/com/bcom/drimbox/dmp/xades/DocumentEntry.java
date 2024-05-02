@@ -26,6 +26,33 @@
 package com.bcom.drimbox.dmp.xades;
 
 
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_author;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_classCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_confidentialityCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_eventCodeList;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_formatCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_healthCareFacilityTypeCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_patientId;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_practiceSettingCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_typeCode;
+import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.XDSDocumentEntry_uniqueId;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Tag;
+import org.dcm4che3.io.DicomInputStream;
+import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
+import org.dcm4che3.io.DicomOutputStream;
+import org.dcm4che3.util.SafeClose;
+
 import com.bcom.drimbox.dmp.xades.file.CDAFile;
 import com.bcom.drimbox.dmp.xades.file.KOSFile;
 import com.bcom.drimbox.dmp.xades.utils.XadesType;
@@ -36,27 +63,6 @@ import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.Tag;
-import org.dcm4che3.data.VR;
-import org.dcm4che3.io.DicomEncodingOptions;
-import org.dcm4che3.io.DicomInputStream;
-import org.dcm4che3.io.DicomOutputStream;
-import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
-import org.dcm4che3.util.SafeClose;
-
-import static com.bcom.drimbox.dmp.xades.utils.XadesUUID.*;
 
 public class DocumentEntry extends BaseElement {
 
@@ -197,6 +203,8 @@ public class DocumentEntry extends BaseElement {
 
 			break;
 		case CDA:
+			hash =  "0";
+			size = "0";
 			mimeType = "text/xml";
 			entryID = "DocumentCDA";
 			uniqueID =  "1.2.250.1.999.1.1.8121." + getRandomInt(20,29) +  "." + getRandomInt(0, 10000);
@@ -270,10 +278,11 @@ public class DocumentEntry extends BaseElement {
 		// sourcePatientId
 		extrinsicObject.appendChild(createSlotField("sourcePatientId", sourcePatientID) );
 
-		extrinsicObject.appendChild(createSlotField("hash", hash));
-		extrinsicObject.appendChild(createSlotField("size", size));
 
-
+		if(!(hash.equals("0") && size.equals("0"))) {
+			extrinsicObject.appendChild(createSlotField("hash", hash));
+			extrinsicObject.appendChild(createSlotField("size", size));
+		}
 		// Patient info
 		if (!sourcePatientInfo.isEmpty()) {
 			List<String> patientInfo = new ArrayList<>();

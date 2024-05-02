@@ -25,5 +25,5 @@
 
 export const environment = {
   production: true,
-  hostconso: 'demodrim.labs.b-com.com'
+  hostconso: 'https://vi1.test1.mesimagesmedicales.fr'
 };

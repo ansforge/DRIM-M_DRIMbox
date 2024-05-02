@@ -27,36 +27,28 @@
 
 package com.bcom.drimbox.api;
 
-import static com.bcom.drimbox.utils.PrefixConstants.METADATA_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.SERIES_PREFIX;
 import static com.bcom.drimbox.utils.PrefixConstants.STUDIES_PREFIX;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
+import org.dcm4che3.data.UID;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
-import org.dcm4che3.util.TagUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.RestMulti;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -64,19 +56,19 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 import com.bcom.drimbox.dmp.database.DatabaseManager;
 import com.bcom.drimbox.dmp.database.SourceEntity;
+import com.bcom.drimbox.dmp.xades.file.KOSFile;
+import com.bcom.drimbox.pacs.PacsCacheSource;
 import com.bcom.drimbox.psc.ProSanteConnect;
 import com.bcom.drimbox.utils.RequestHelper;
-import com.bcom.drimbox.utils.exceptions.RequestErrorException;
 import com.bcom.drimbox.utils.exceptions.WadoErrorException;
 
 import io.quarkus.logging.Log;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
-import jakarta.json.JsonArray;
 import jakarta.json.JsonArrayBuilder;
-import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -88,6 +80,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
 
@@ -113,6 +106,9 @@ public class DRIMboxSourceAPI {
 	@Inject
 	DatabaseManager databaseManager;
 
+	@Inject
+	PacsCacheSource pacsCacheSource;
+
 	/**
 	 * Bearer token that is in the request. It will be verified with the introspection mechanism of prosanteconnect
 	 */
@@ -125,6 +121,7 @@ public class DRIMboxSourceAPI {
 	ProSanteConnect proSanteConnect;
 
 	public static final String DICOM_FILE_PREFIX = "dicomfile";
+
 
 	@GET
 	@Produces("multipart/related")
@@ -139,7 +136,7 @@ public class DRIMboxSourceAPI {
 		}
 
 		String url = getWadoUrl() + "/" + STUDIES_PREFIX + "/" + studyUID + "/" + SERIES_PREFIX + "/" + seriesUID;
-
+		Log.info("WADO : " + url);
 		List<String> acceptHeaderList = headers.getRequestHeaders().get("Accept");
 		if(acceptHeaderList == null || acceptHeaderList.isEmpty())  {
 			return createError("Missing Accept header. " + ACCEPTED_FORMAT_SAMPLE, 400);
@@ -212,8 +209,8 @@ public class DRIMboxSourceAPI {
 		}
 
 		String contentType = String.format("multipart/related;start=\"<1@resteasy-multipart>\";type=\"application/dicom\"; boundary=%s", boundary);
-
-		return RestMulti.fromMultiData(requestHelper.fileRequestCMove(url, acceptedTransferSyntax, preferredTransferSyntax, boundary))
+		Log.info(contentType);
+		return RestMulti.fromMultiData(requestHelper.fileRequestCMove(url, acceptedTransferSyntax, preferredTransferSyntax, boundary, "conso"))
 				.header("Content-Type", contentType)
 				.build();
 	}
@@ -271,6 +268,18 @@ public class DRIMboxSourceAPI {
 	}
 
 
+	@Produces(MediaType.APPLICATION_JSON)
+	@GET
+	@Path("test")
+	public Response demoRedirect(@Context UriInfo uriInfo) throws IOException {
+		String studyUID = uriInfo.getQueryParameters().getFirst("studyUID");
+
+		return Response //seeOther = 303 redirect
+				.seeOther(UriBuilder.fromUri("https://vi1.test1.mesimagesmedicales.fr/viewer/dicomjson?url=https://vi1.test1.mesimagesmedicales.fr/api-vi1-source/metadata/" + studyUID)
+						.build())//build the URL where you want to redirect
+				.build();
+	}
+
 	/**
 	 * API to handle call to open DB source viewer. 
 	 * It generates json after a wado-rs metadata request to the pacs
@@ -278,116 +287,121 @@ public class DRIMboxSourceAPI {
 	 * @param uriInfo
 	 * @param idCDA
 	 * @return
+	 * @throws IOException 
 	 */
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
 	@Path("metadata/{studyUID}")
-	public Response getSourceMetadata(String studyUID, @Context UriInfo uriInfo) {
-		final String pacsUrl = getWadoUrl();
-
-		String url = pacsUrl + "/" + STUDIES_PREFIX +"/" + studyUID + "/" + METADATA_PREFIX;
-		var response = requestHelper.stringRequest(url, this::getPacsConnection);
-
-		int responseCode = response.getStatus();
-		String responseMessage = response.getEntity();
-		Log.info(responseCode);
-		switch(responseCode) {
-		case 502:
-		case 504:
-			return Response.ok(responseMessage).status(responseCode).build();
-		case 404:
-			Log.info(studyUID + " not correct : " + studyUID);
-			return Response.ok(String.format("Study : %s not found at %s", studyUID, pacsUrl)).status(responseCode).build();
-		case 200:
-			break;
-		default:
-			return Response.ok(String.format("Error when retrieving metadata at %s for study %s. Reason : %s", pacsUrl, studyUID, responseMessage)).status(responseCode).build();
-		}
+	public Response getSourceMetadata(String studyUID, @Context UriInfo uriInfo) throws IOException {
 
 		SourceEntity entity = this.databaseManager.getEntity(studyUID);
 		if(entity == null) {
 			Log.info("No data found in database");
 		}
 
-		// Read metadata from server
-		var jsonReader = Json.createReader(new StringReader(responseMessage));
-		JsonArray dicomMetadata = jsonReader.readArray();
+		KOSFile kos = new KOSFile(entity.rawKOS);
+		Log.info("\n" + kos.getSeriesInfo().size() + "\n");
 
+		Log.info("Available series : ");
+		Log.info(kos.getSeriesInfo().keySet());
+
+		DicomInputStream dis = new DicomInputStream(new ByteArrayInputStream(kos.getRawData()));
+		Attributes attributes = dis.readDataset();
 
 		JsonObjectBuilder root = Json.createObjectBuilder();
+
+		String patientINS = kos.getPatientINS();
+
+
 		JsonArrayBuilder studiesArray = Json.createArrayBuilder();
 		JsonArrayBuilder seriesArray = Json.createArrayBuilder();
+		JsonArrayBuilder instancesArray = Json.createArrayBuilder();
 
 
 
-		Map<String, JsonObjectBuilder> seriesMap = new HashMap<>();
-		Map<String, JsonArrayBuilder> instanceMap = new HashMap<>();
+		String textValue = "";
+		for (Attributes sequence : attributes.getSequence(Tag.ContentSequence)) {
+			if(sequence.getString(Tag.ValueType).equals("TEXT")) {
+				textValue = sequence.getString(Tag.TextValue);
+			}
+		}
+		String modal = textValue.split("Série-")[1].split(" : ")[1].split(" ")[0];
 
-		for(Object dicomInstanceMetadata : dicomMetadata) {
 
-			JsonObject currentInstanceJson = (JsonObject) dicomInstanceMetadata;
-			Function<Integer, String> getStringField = (var tag) ->  currentInstanceJson.getJsonObject(TagUtils.toHexString(tag)).getJsonArray("Value").getString(0);
 
-			final String currentSeriesUID = getStringField.apply(Tag.SeriesInstanceUID);
+		for(String seriesUID : kos.getSeriesInfo().keySet()) {
 
-			// If our series is not already in the map we add it
-			if (!seriesMap.containsKey(currentSeriesUID)) {
-				JsonObjectBuilder seriesObject = Json.createObjectBuilder();
-				seriesObject.add("SeriesInstanceUID", currentSeriesUID);
+			pacsCacheSource.addNewEntry(studyUID, seriesUID);
+			String url = getWadoUrl() + "/" + STUDIES_PREFIX + "/" + studyUID + "/" + SERIES_PREFIX + "/" + seriesUID;
+			requestHelper.fileRequestCMove(url, Arrays.asList(UID.JPEGBaseline8Bit, "0.9",
+					UID.JPEGExtended12Bit, "0.8",
+					UID.JPEG2000, "0.8",
+					UID.JPEGLosslessSV1, "0.7",
+					UID.JPEGLSLossless, "0.6",
+					UID.ExplicitVRLittleEndian, "0.5",
+					UID.MPEG2MPML, "0.4",
+					UID.MPEG2MPHL, "0.3",
+					UID.MPEG4HP41, "0.3",
+					UID.MPEG4HP41BD, "0.3"),  
+					Arrays.asList(UID.JPEGBaseline8Bit, "0.9",
+							UID.JPEGExtended12Bit, "0.8",
+							UID.JPEG2000, "0.8",
+							UID.JPEGLosslessSV1, "0.7",
+							UID.JPEGLSLossless, "0.6",
+							UID.ExplicitVRLittleEndian, "0.5",
+							UID.MPEG2MPML, "0.4",
+							UID.MPEG2MPHL, "0.3",
+							UID.MPEG4HP41, "0.3",
+							UID.MPEG4HP41BD, "0.3"), "myBoundary", "source");
 
-				seriesMap.put(currentSeriesUID, seriesObject);
+			for(Attributes currentSequence : attributes.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence).get(0).getSequence(Tag.ReferencedSeriesSequence)
+					.get(0).getSequence(Tag.ReferencedSOPSequence)) {
+
+				JsonObjectBuilder metadata = Json.createObjectBuilder();
+				metadata.add("SOPInstanceUID", currentSequence.getString(Tag.ReferencedSOPInstanceUID));
+
+				metadata.add("SeriesInstanceUID", seriesUID);
+				metadata.add("StudyInstanceUID", attributes.getString(Tag.StudyInstanceUID));
+
+				metadata.add("SOPClassUID", currentSequence.getString(Tag.ReferencedSOPClassUID));
+				metadata.add("Modality", modal);
+				metadata.add("INS", patientINS);
+
+				metadata.add("InstanceNumber", currentSequence.getString(Tag.InstanceNumber));
+
+				// Add to the instance list
+				instancesArray.add(Json.createObjectBuilder()
+						.add("metadata", metadata)
+						.add("url", "dicomweb:" + this.sourceHost  +"/api-vi1-source/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentSequence.getString(Tag.ReferencedSOPInstanceUID) )
+						);
 			}
 
-			JsonObjectBuilder metadata = Json.createObjectBuilder();
-			String instanceUID = getStringField.apply(Tag.SOPInstanceUID);
-			metadata.add("SOPInstanceUID", instanceUID);
-			metadata.add("SeriesInstanceUID", currentSeriesUID);
-			metadata.add("StudyInstanceUID", getStringField.apply(Tag.StudyInstanceUID));
-			metadata.add("SOPClassUID", getStringField.apply(Tag.SOPClassUID));
-			metadata.add("InstanceNumber", getStringField.apply(Tag.InstanceNumber));
-
-
-			if (!instanceMap.containsKey(currentSeriesUID)) {
-				JsonArrayBuilder instancesArray = Json.createArrayBuilder();
-				instanceMap.put(currentSeriesUID, instancesArray);
-			}
-
-			JsonArrayBuilder currentInstancesArray = instanceMap.get(currentSeriesUID);
-
-			// Add to the instance list
-			currentInstancesArray.add(Json.createObjectBuilder()
-					.add("metadata", metadata)
-					.add("url", "wadouri:" + this.sourceHost + "/" + "api/source" + "/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + currentSeriesUID + "/" + instanceUID )
-					);
-
+			JsonObjectBuilder seriesObject = Json.createObjectBuilder();
+			seriesObject.add("SeriesInstanceUID", seriesUID);
+			seriesObject.add("instances", instancesArray);
+			seriesObject.add("Modality", "CT");
+			seriesArray.add(seriesObject);
 		}
-
-		for (Map.Entry<String, JsonObjectBuilder> entry : seriesMap.entrySet()) {
-			String seriesUID = entry.getKey();
-			JsonObjectBuilder currentSeriesJsonObject = entry.getValue();
-
-			currentSeriesJsonObject.add("instances", instanceMap.get(seriesUID));
-			seriesArray.add(currentSeriesJsonObject);
-		}
-
-
 		JsonObjectBuilder study = Json.createObjectBuilder();
 		study.add("StudyInstanceUID", studyUID);
 		study.add("series", seriesArray);
-		study.add("NumInstances", dicomMetadata.size());
+		study.add("NumInstances", "5");
 
-		study.add("StudyDate", "20000101");
-		study.add("StudyTime", "");
-		study.add("PatientName", "");
-		study.add("PatientID", "LOL");
-		study.add("AccessionNumber", "");
-		study.add("PatientAge", "");
-		study.add("PatientSex", "");
-		study.add("StudyDescription", "");
+		study.add("StudyDate",  attributes.getString(Tag.StudyDate));
+		study.add("StudyTime", attributes.getString(Tag.StudyTime));
+		study.add("PatientName", attributes.getString(Tag.PatientName));
+		study.add("PatientID", attributes.getString(Tag.PatientID));
+		study.add("AccessionNumber", attributes.getSequence(Tag.ReferencedRequestSequence).get(0).getString(Tag.AccessionNumber));
+		study.add("PatientAge", attributes.getString(Tag.PatientAge, ""));
+		study.add("PatientSex", attributes.getString(Tag.PatientSex));
+		study.add("StudyDescription", attributes.getString(Tag.StudyDescription));
+		study.add("Modalities", modal);
+		study.add("fullmetadataset", "no");
 
 		studiesArray.add(study);
 
 		root.add("studies", studiesArray);
+		dis.close();
 
 		return Response.ok(root.build().toString()).build();
 	}
@@ -422,60 +436,28 @@ public class DRIMboxSourceAPI {
 	// TODO : add authentification
 	@GET
 	@Path(DICOM_FILE_PREFIX + "/{studyUID}/{seriesUID}/{instanceUID}")
-	public RestResponse<byte[]> getDicomFile(String studyUID, String seriesUID, String instanceUID) {
-		String url = getWadoUrl() + "/" + STUDIES_PREFIX +"/" + studyUID + "/" + SERIES_PREFIX + "/" + seriesUID + "/instances/" +  instanceUID;
+	public Uni<RestResponse<byte[]>> getDicomFile(String studyUID, String seriesUID, String instanceUID) {
 
-		var dicomFiles = requestHelper.multipartFileRequest(url, this::getPacsConnection);
-
-		if (dicomFiles.size() != 1) {
-			Log.error("Should have retrieve only one dicom file");
-			return RestResponse.noContent();
-		}
-
-		return RestResponse.ok(dicomFiles.get(0));
-	}
-
-	private HttpURLConnection getPacsConnection(String pacsUrl) throws RequestErrorException  {
 		try {
-			final URL url = new URL(pacsUrl);
-
-			if (!checkAuthorisation()) {
-				throw new RequestErrorException("Authentication failure", 401);
-			}
-
-			final int timeoutValueMS = 60000;
-			final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-			connection.setConnectTimeout(timeoutValueMS);
-			connection.setReadTimeout(timeoutValueMS);
-			connection.setRequestMethod("GET");
-			int responseCode = connection.getResponseCode();
-
-			switch(responseCode) {
-			case 404:
-				throw new RequestErrorException("Cannot find resource", responseCode);
-			case 504:
-				throw new RequestErrorException("Pacs didn't respond in time.", responseCode);
-			case 200:
-			case 206:
-				break;
-			default:
-				throw new RequestErrorException("Pacs request failed.", responseCode);
-			}
-
-			return connection;
-		} catch (ProtocolException e) {
-			throw new RequestErrorException("ProtocolException : " + e.getMessage(), 500);
-		} catch (MalformedURLException e) {
-			throw new RequestErrorException("MalformedURLException : " + e.getMessage(), 500);
-		} catch (SocketTimeoutException e) {
-			throw new RequestErrorException("Pacs didn't respond in time. " + e.getMessage(), 504);
-		} catch (ConnectException e) {
-			Log.error(String.format("Pacs at %s is not responding.", pacsUrl));
-			throw new RequestErrorException("Pacs is not responding. " + e.getMessage(), 502);
-		} catch (IOException e) {
-			throw new RequestErrorException("IOException : " + e.getMessage(), 500);
+			Future<byte[]> future = pacsCacheSource.getDicomFile(studyUID, seriesUID, instanceUID);
+			return Uni.createFrom().future(future).onItem().transform(
+					item -> {
+						if (item.length == 0) {
+							Log.info("[dicomfile] Not found : " + instanceUID);
+							return RestResponse.ResponseBuilder.ok(item).header("Accept-Ranges", "bytes").status(410).build();
+						}
+						Log.info("[dicomfile] Response : " + instanceUID);
+						return RestResponse.ResponseBuilder.ok(item).header("Accept-Ranges", "bytes").build();
+					}
+					)
+					.onFailure().recoverWithItem(requestHelper.getDeniedFileResponse(404));
+		} catch (Exception e) {
+			Log.error("Can't get file from cache");
+			e.printStackTrace();
+			return Uni.createFrom().item(requestHelper.getDeniedFileResponse());
 		}
 	}
+
 
 	private boolean checkAuthorisation()  {
 		return noAuth || (!bearerToken.isEmpty() && proSanteConnect.introspectToken(bearerToken));
@@ -506,6 +488,5 @@ public class DRIMboxSourceAPI {
 		} else {
 			return inputStream;
 		}
-
 	}
 }

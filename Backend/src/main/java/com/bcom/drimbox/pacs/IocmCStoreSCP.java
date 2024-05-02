@@ -56,7 +56,6 @@ import org.dcm4che3.net.service.DicomServiceRegistry;
 import org.dcm4che3.util.StreamUtils;
 
 import com.bcom.drimbox.api.DmpAPI;
-import com.bcom.drimbox.dmp.database.DatabaseManager;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -65,9 +64,6 @@ import jakarta.inject.Singleton;
 
 @Singleton
 public class IocmCStoreSCP {
-
-	@Inject
-	DatabaseManager databaseManager;
 
 	private ApplicationEntity ae;
 

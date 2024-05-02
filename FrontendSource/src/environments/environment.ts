@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  sourcehost: 'http://demodrim.labs.b-com.com'
+  hostsource: 'https://vi1.test1.mesimagesmedicales.fr'
 };
 
 /*

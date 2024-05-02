@@ -1,5 +1,6 @@
 package appelContextuel;
 
+import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -26,19 +27,16 @@ public class ParameterList {
 	// Map cache with uuid and query parameters associated 
 	private final Map<String, Map<String, String>> paramsCache = new HashMap<>();
 
-	// Map of query parameters
-	private final Map<String, String> queryParams = new HashMap<>();
-
 	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "Opposition", "PatientID", "PatientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "InformationEtOppositionConsultation", "PatientID", "PatientIDIssuer"};  
 
 	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
-			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "Opposition",
-			 "PatientID", "PatientIDIssuer"};  
+			"Patient.birthDate", "Address.district", "StudyInstanceUID", "Modality", "AccessionNumber", "AccessionNumberIssuer", "StudyDate", "AnatomicRegion", "Situation", "InformationEtOppositionConsultation",
+			"PatientID", "PatientIDIssuer"};
 
 	@ConfigProperty(name = "server.hostname")
 	String hostname;
-	
+
 	/**
 	 *  Retrieve params from RIS and adding them to the cache with a uuid 
 	 * 
@@ -53,7 +51,7 @@ public class ParameterList {
 
 		Log.info(requestBody);
 		boolean validParams = false;
-		queryParams.clear();
+		Map<String, String> queryParams = new HashMap<>();
 		UUID uuid = UUID.randomUUID();
 		// Retrieving query parameters from url
 		String[] pairs = requestBody.split("&");
@@ -71,17 +69,17 @@ public class ParameterList {
 			}
 
 			// Adding query params in local map
-			this.queryParams.put(keyValuePair[0], keyValuePair[1]);
+			queryParams.put(keyValuePair[0], URLDecoder.decode(keyValuePair[1], "UTF-8"));
 		}
-	    SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
-	    Date date = new Date();  
-		this.queryParams.put("time", formatter.format(date));
+		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+		Date date = new Date();  
+		queryParams.put("time", formatter.format(date));
 
 		// Adding local map with uuid in Cache map
-		this.paramsCache.put(uuid.toString(), this.queryParams);
+		this.paramsCache.put(uuid.toString(), queryParams);
 		for ( String param: paramsMandatory)  
 		{  
-			validParams = this.verifMandatory(param); 
+			validParams = this.verifMandatory(param, queryParams); 
 			if (!validParams) {
 				Log.info("missing a mandatory parameter : " + param);
 				return Response.status(400, "missing a mandatory parameter : " + param).build();
@@ -110,9 +108,8 @@ public class ParameterList {
 	@Path("/302")
 	public Response echoBis(String requestBody) throws Exception {		
 
-		Log.info(requestBody);
 		boolean validParams = false;
-		queryParams.clear();
+		Map<String, String> queryParams = new HashMap<>();
 		UUID uuid = UUID.randomUUID();
 		// Retrieving query parameters from url
 		String[] pairs = requestBody.split("&");
@@ -130,18 +127,18 @@ public class ParameterList {
 			}
 
 			// Adding query params in local map
-			this.queryParams.put(keyValuePair[0], keyValuePair[1]);
+			queryParams.put(keyValuePair[0], URLDecoder.decode(keyValuePair[1], "UTF-8"));
 		}
-		
-	    SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
-	    Date date = new Date();  
-		this.queryParams.put("time", formatter.format(date));
-		
+
+		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+		Date date = new Date();  
+		queryParams.put("time", formatter.format(date));
+
 		// Adding local map with uuid in Cache map
-		this.paramsCache.put(uuid.toString(), this.queryParams);
+		this.paramsCache.put(uuid.toString(), queryParams);
 		for ( String param: paramsMandatory)  
 		{  
-			validParams = this.verifMandatory(param); 
+			validParams = this.verifMandatory(param, queryParams); 
 			if (!validParams) {
 				Log.info("missing a mandatory parameter : " + param);
 				return Response.status(400, "missing a mandatory parameter : " + param).build();
@@ -154,9 +151,9 @@ public class ParameterList {
 	}
 
 
-	private boolean verifMandatory(String value) {
+	private boolean verifMandatory(String value, Map<String, String> queryParams) {
 		boolean valid = true;
-		if(this.queryParams.get(value) == null) {
+		if(queryParams.get(value) == null) {
 			valid = false;
 			Log.info(value);
 		}

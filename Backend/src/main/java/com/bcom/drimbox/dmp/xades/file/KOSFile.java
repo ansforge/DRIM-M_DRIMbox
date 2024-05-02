@@ -26,7 +26,6 @@
 package com.bcom.drimbox.dmp.xades.file;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,11 +51,9 @@ import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
 import org.dcm4che3.data.VR;
 import org.dcm4che3.io.DicomInputStream;
-import org.dcm4che3.io.DicomOutputStream;
 import org.dcm4che3.io.DicomInputStream.IncludeBulkData;
+import org.dcm4che3.io.DicomOutputStream;
 
-import com.bcom.drimbox.dmp.database.DatabaseManager;
-import com.bcom.drimbox.dmp.database.SourceEntity;
 import com.bcom.drimbox.pacs.CFindSCU;
 
 import io.quarkus.logging.Log;
@@ -137,8 +134,8 @@ public class KOSFile {
 		attrs.setString(Tag.SeriesTime, VR.DA, localTime.format(fmt2));
 		attrs.setString(Tag.ContentTime, VR.DA, localTime.format(fmt2));
 
-		attrs.setString(Tag.PatientName, VR.PN, c.getPatientName());
-		attrs.setString(Tag.OtherPatientNames, VR.PN, c.getPatientName());
+		attrs.setString(Tag.PatientName, VR.PN, c.getPatientName() + "^" + c.getPatientGiven());
+		attrs.setString(Tag.OtherPatientNames, VR.PN, c.getPatientName() + "^" + c.getPatientGiven());
 		attrs.setString(Tag.PatientID, VR.LO, c.getPatientID().concat("^").split("\\^")[0]);
 		attrs.setString(Tag.PatientBirthDate, VR.DA, c.getPatientBirthDate());
 		attrs.setString(Tag.PatientSex, VR.CS, c.getPatientSex());
@@ -150,7 +147,7 @@ public class KOSFile {
 		attrs.setString(Tag.SOPInstanceUID, VR.UI, sopInstanceUID);
 		attrs.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
 
-		attrs.setString(Tag.PatientComments, VR.PN, "29758");
+		attrs.setString(Tag.PatientComments, VR.PN, c.getAddr());
 
 		Sequence issuerOfPatientIDQualifiersSequence = attrs.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
 		Attributes seqIssuer = new Attributes();
@@ -161,6 +158,7 @@ public class KOSFile {
 		Sequence otherPatientIDsSequence = attrs.newSequence(Tag.OtherPatientIDsSequence, 1);
 		Attributes seqOthers = new Attributes();
 		seqOthers.setString(Tag.PatientID, VR.LO, c.getPatientID().split("\\^")[0]);
+		seqOthers.setString(Tag.IssuerOfPatientID, VR.LO, "ASIP-SANTE-INS-NIR");
 		seqOthers.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
 
 		Sequence issuerOfPatientIDQualifiersSequences = seqOthers.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);

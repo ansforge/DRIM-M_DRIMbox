@@ -1,6 +1,5 @@
 package appelContextuel;
 
-import io.quarkus.logging.Log;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
@@ -21,7 +20,6 @@ public class DisplayPage {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance hello(@QueryParam("uuid") String uuidParams) {
-    	Log.info(parameterList.getParams(uuidParams));
         return template.data("params", parameterList.getParams(uuidParams));
     }
 }

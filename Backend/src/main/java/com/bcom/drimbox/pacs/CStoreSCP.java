@@ -60,6 +60,7 @@ import org.dcm4che3.net.service.BasicCStoreSCP;
 import org.dcm4che3.net.service.DicomServiceRegistry;
 import org.dcm4che3.util.SafeClose;
 import org.dcm4che3.util.StreamUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
@@ -87,11 +88,18 @@ public class CStoreSCP {
 	private String ins;
 	private ApplicationEntity ae;
 
+	private String config;
 
 	private List<String> ts;
+	
+	@ConfigProperty(name="test.ts")
+	Boolean tss;
 
 	@Inject
 	EventBus eventBus;
+
+	@Inject
+	PacsCacheSource pacsCacheSource;
 
 	public void startCStore(String calledAET, String bindAddress, int port) throws Exception {
 		this.host = bindAddress;
@@ -179,7 +187,7 @@ public class CStoreSCP {
 	public void setIns( String ins) {
 		this.ins = ins;
 	}
-	
+
 	/**
 	 * Set transfer syntax
 	 */
@@ -199,62 +207,92 @@ public class CStoreSCP {
 		String iuid = rq.getString(Tag.AffectedSOPInstanceUID);
 		String tsuid = pc.getTransferSyntax();
 		Attributes fmi = as.createFileMetaInformation(iuid, cuid, tsuid);
-		ByteArrayOutputStream output = new ByteArrayOutputStream();
-		ByteArrayOutputStream output2 = new ByteArrayOutputStream();
 
-		output.write(("--" + this.boundary + "\r\nContent-ID: <"+ currentID +"@resteasy-multipart>\r\nContent-Type: application/dicom;transfer-syntax="+this.ts+"\r\n\r\n").getBytes());
+		if(this.config.equals("conso")) {
+			ByteArrayOutputStream output = new ByteArrayOutputStream();
+			ByteArrayOutputStream output2 = new ByteArrayOutputStream();
 
-		try (DicomOutputStream dos = new DicomOutputStream(output2, tsuid)) {
-			dos.writeFileMetaInformation(fmi);
-			StreamUtils.copy(data, dos);
-		}
+			output.write(("--" + this.boundary + "\r\nContent-ID: <"+ currentID +"@resteasy-multipart>\r\nContent-Type: application/dicom;transfer-syntax="+this.ts+"\r\n\r\n").getBytes());
 
-		InputStream input = new ByteArrayInputStream(output2.toByteArray()); 
-
-		if (!this.checkTransferSyntax(tsuid)) {
-			DCMTranscoder dcm2Dcm = new DCMTranscoder();
-			try {
-				dcm2Dcm.setTransferSyntax(ts.get(0), this.ins);
-				output.write(dcm2Dcm.transcode(input).toByteArray());
-			} catch (InterruptedException e) {
-				Log.error("Can't transcode current input stream");
-				e.printStackTrace();
+			try (DicomOutputStream dos = new DicomOutputStream(output2, tsuid)) {
+				dos.writeFileMetaInformation(fmi);
+				StreamUtils.copy(data, dos);
 			}
-		}
-		else {
-			Attributes dataset;
-			DicomOutputStream dos = null;
-			try (DicomInputStream dis = new DicomInputStream(input)) {
-				dis.setIncludeBulkData(IncludeBulkData.URI);
-				fmi = dis.readFileMetaInformation();
-				dataset = dis.readDataset();
-				Sequence otherPatientIDsSequence = dataset.newSequence(Tag.OtherPatientIDsSequence, 1);
-				Attributes seqOthers = new Attributes();
-				seqOthers.setString(Tag.PatientID, VR.LO, this.ins);
-				seqOthers.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
 
-				Sequence issuerOfPatientIDQualifiersSequences = seqOthers.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
-				Attributes seqIssuers = new Attributes();
-				seqIssuers.setString(Tag.UniversalEntityID, VR.UT, "1.2.250.1.213.1.4.10");
-				seqIssuers.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-				issuerOfPatientIDQualifiersSequences.add(seqIssuers);
-				otherPatientIDsSequence.add(seqOthers);
-				
-				dos = new DicomOutputStream(output, tsuid);
-				dos.setEncodingOptions(DicomEncodingOptions.DEFAULT);
-				dos.writeDataset(fmi, dataset);
-			} finally {
-				SafeClose.close(dos);
+			InputStream input = new ByteArrayInputStream(output2.toByteArray()); 
+
+			if (!this.checkTransferSyntax(tsuid)) {
+				DCMTranscoder dcm2Dcm = new DCMTranscoder();
+				try {
+					dcm2Dcm.setTransferSyntax(ts.get(0), this.ins);
+					output.write(dcm2Dcm.transcode(input).toByteArray());
+				} catch (InterruptedException e) {
+					Log.error("Can't transcode current input stream");
+					e.printStackTrace();
+				}
 			}
+			else {
+				Attributes dataset;
+				DicomOutputStream dos = null;
+				try (DicomInputStream dis = new DicomInputStream(input)) {
+					dis.setIncludeBulkData(IncludeBulkData.URI);
+					fmi = dis.readFileMetaInformation();
+					dataset = dis.readDataset();
+					Sequence otherPatientIDsSequence = dataset.newSequence(Tag.OtherPatientIDsSequence, 1);
+					Attributes seqOthers = new Attributes();
+					seqOthers.setString(Tag.PatientID, VR.LO, this.ins);
+					seqOthers.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
+
+					Sequence issuerOfPatientIDQualifiersSequences = seqOthers.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
+					Attributes seqIssuers = new Attributes();
+					seqIssuers.setString(Tag.UniversalEntityID, VR.UT, "1.2.250.1.213.1.4.10");
+					seqIssuers.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+					issuerOfPatientIDQualifiersSequences.add(seqIssuers);
+					otherPatientIDsSequence.add(seqOthers);
+
+					dos = new DicomOutputStream(output, tsuid);
+					dos.setEncodingOptions(DicomEncodingOptions.DEFAULT);
+					dos.writeDataset(fmi, dataset);
+				} finally {
+					SafeClose.close(dos);
+				}
+			}
+			output.write(("\r\n").getBytes());
+
+			output.flush();
+
+			// Tell vertx we have a new image
+			eventBus.publish(EB_IMAGE_ADDRESS, output.toByteArray());
+
+			currentID++;
 		}
-		output.write(("\r\n").getBytes());
 
-		output.flush();
 
-		// Tell vertx we have a new image
-		eventBus.publish(EB_IMAGE_ADDRESS, output.toByteArray());
+		else if(this.config.equals("source")) {
+			ByteArrayOutputStream output = new ByteArrayOutputStream();
+			try (DicomOutputStream dos = new DicomOutputStream(output, tsuid)) {
+				dos.writeFileMetaInformation(fmi);
+				StreamUtils.copy(data, dos);
+			}
 
-		currentID++;
+			InputStream input = new ByteArrayInputStream(output.toByteArray()); 
+
+			if (!this.checkTransferSyntax(tsuid)) {
+				DCMTranscoder dcm2Dcm = new DCMTranscoder();
+				try {
+					dcm2Dcm.setTransferSyntax(ts.get(0), this.ins);
+					output.reset();
+					output.write(dcm2Dcm.transcode(input).toByteArray());
+					input = new ByteArrayInputStream(output.toByteArray()); 
+				} catch (InterruptedException e) {
+					Log.error("Can't transcode current input stream");
+					e.printStackTrace();
+				}
+			}
+
+			pacsCacheSource.setInCache(input);
+		}
+
 
 	}
 
@@ -266,14 +304,19 @@ public class CStoreSCP {
 		return aet;
 	}
 
+	public void setConfig(String config) {
+		this.config = config;
+	}
+
 	private boolean checkTransferSyntax(String transferSyntax) {
 		boolean found = false;
+		Log.info(tss);
 		for (String tsAvailable : this.ts) {
 			if(Objects.equals(tsAvailable, transferSyntax)) {
 				found = true;
 			}
 		}
 		Log.info(found);
-		return found;
+		return tss;
 	}
 }

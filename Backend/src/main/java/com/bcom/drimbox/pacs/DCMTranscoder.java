@@ -63,8 +63,6 @@ import org.dcm4che3.io.DicomOutputStream;
 import org.dcm4che3.util.Property;
 import org.dcm4che3.util.SafeClose;
 
-import io.quarkus.logging.Log;
-
 
 public class DCMTranscoder {
 

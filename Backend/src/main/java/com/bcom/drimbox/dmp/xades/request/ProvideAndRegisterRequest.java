@@ -114,13 +114,13 @@ public class ProvideAndRegisterRequest extends BaseXadesRequest {
 		addBaseElementToNode(registryObjectList, submissionSet);
 
 		// DocumentEntry fields
-		//DocumentEntry cdaEntry = new DocumentEntry(referenceCDA, DocumentEntry.FileType.CDA, kos);
+		DocumentEntry cdaEntry = new DocumentEntry(referenceCDA, DocumentEntry.FileType.CDA, kos);
 		DocumentEntry kosEntry = new DocumentEntry(referenceCDA, DocumentEntry.FileType.KOS, kos);
 
 		String signUniqueID = UIDUtils.createUID();
 		// Signature
 		XadesSign s = new XadesSign();
-		//s.addDocument(cdaEntry, referenceCDA.getRawData());
+		s.addDocument(cdaEntry, referenceCDA.getRawData());
 		// WARNING : we use rawData for signing, but we send the KOS in B64
 		s.addDocument(kosEntry, kos.getRawData());
 		String xadesSignature = s.sign(submissionSet.getUniqueID(), signUniqueID);
@@ -130,18 +130,18 @@ public class ProvideAndRegisterRequest extends BaseXadesRequest {
 
 
 		// Add document entry to the request
-		// addBaseElementToNode(registryObjectList, cdaEntry);
+		addBaseElementToNode(registryObjectList, cdaEntry);
 		addBaseElementToNode(registryObjectList, kosEntry);
 		addBaseElementToNode(registryObjectList, signatureEntry);
 
 		// Associations
-		//registryObjectList.appendChild(createXMLAssociation(submissionSet.getEntryID(), cdaEntry.getEntryID(), XDSAssoc_hasMember));
+		registryObjectList.appendChild(createXMLAssociation(submissionSet.getEntryID(), cdaEntry.getEntryID(), XDSAssoc_hasMember));
 		registryObjectList.appendChild(createXMLAssociation(submissionSet.getEntryID(), kosEntry.getEntryID(), XDSAssoc_hasMember));
 		registryObjectList.appendChild(createXMLAssociation(submissionSet.getEntryID(), signatureEntry.getEntryID(), XDSAssoc_hasMember));
 		registryObjectList.appendChild(createXMLAssociation(signatureEntry.getEntryID(), submissionSet.getEntryID(), XDSAssoc_signs));
 
 		// Append ID docs
-		//provideAndRegisterDocumentSetRequest.appendChild(createDocumentDescription(cdaEntry.getEntryID()));
+		provideAndRegisterDocumentSetRequest.appendChild(createDocumentDescription(cdaEntry.getEntryID()));
 		provideAndRegisterDocumentSetRequest.appendChild(createDocumentDescription(kosEntry.getEntryID()));
 		provideAndRegisterDocumentSetRequest.appendChild(createDocumentDescription(signatureEntry.getEntryID()));
 
@@ -153,8 +153,8 @@ public class ProvideAndRegisterRequest extends BaseXadesRequest {
 		addRequestPart("application/octet-stream", getSignatureID(), xadesSignature, "binary");
 		// TODO : handle id more properly
 		List<String> ids = getDocumentIDs();
-		//addRequestPart("application/octet-stream", ids.get(0), new String(referenceCDA.getRawData(), StandardCharsets.UTF_8), "binary");
-		addRequestPart("application/octet-stream", ids.get(0), new String(kos.getB64RawData(), StandardCharsets.UTF_8), "BASE64");
+		addRequestPart("application/octet-stream", ids.get(0), new String(referenceCDA.getRawData(), StandardCharsets.UTF_8), "binary");
+		addRequestPart("application/octet-stream", ids.get(1), new String(kos.getB64RawData(), StandardCharsets.UTF_8), "BASE64");
 
 
 		this.signDOC = xadesSignature;

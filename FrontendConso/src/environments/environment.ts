@@ -29,7 +29,7 @@
 
 export const environment = {
   production: false,
-  hostconso: 'demodrim.labs.b-com.com'
+  hostconso: 'https://vi1.test1.mesimagesmedicales.fr'
 };
 
 /*

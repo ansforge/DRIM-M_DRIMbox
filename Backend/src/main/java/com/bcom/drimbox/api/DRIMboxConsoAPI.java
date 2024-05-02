@@ -28,11 +28,11 @@
 package com.bcom.drimbox.api;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -113,20 +113,19 @@ public class DRIMboxConsoAPI {
 	@Produces(MediaType.APPLICATION_JSON)
 	@GET
 	@Path("ohifv3metadata/{studyUID}/{seriesUID}/{sopInstanceUID}")
-	public Uni<Response> getOHIFv3Metadata(@Context UriInfo uriInfo, String studyUID, String seriesUID, String sopInstanceUID) {
+	public Uni<Response> getOHIFv3Metadata(@Context UriInfo uriInfo, String studyUID, String seriesUID, String sopInstanceUID) throws IOException {
 		String drimboxSourceURL;
 		// Get drimbox source url from KOS
 		KOSFile kos = DmpAPI.getKOS(studyUID);
-
-//		// TODO : this is for testing purpose only
-//		ClassLoader classLoader = getClass().getClassLoader();
-//		InputStream inputStream = classLoader.getResourceAsStream("testKos.dcm");
-//		KOSFile kos = null;
-//		try {
-//			kos = new KOSFile(inputStream.readAllBytes());
-//		} catch (IOException e) {
-//			throw new RuntimeException(e);
-//		}
+		//		// TODO : this is for testing purpose only
+		//		ClassLoader classLoader = getClass().getClassLoader();
+		//		InputStream inputStream = classLoader.getResourceAsStream("testKos.dcm");
+		//		KOSFile kos = null;
+		//		try {
+		//			kos = new KOSFile(inputStream.readAllBytes());
+		//		} catch (IOException e) {
+		//			throw new RuntimeException(e);
+		//		}
 		if (kos == null) {
 			final String errorMessage = "Can't find KOS associated with study UID " + studyUID;
 			Log.error(errorMessage);
@@ -168,136 +167,110 @@ public class DRIMboxConsoAPI {
 		var cacheFuture = pacsCache.addNewEntry(drimboxSourceURL, getAccessToken(), studyUID, seriesUID, sopInstanceUID);
 
 		CompletableFuture<Response> completableFuture = new CompletableFuture<>();
-
 		String patientINS = kos.getPatientINS();
-		vertx.eventBus().consumer( PacsCache.getEventBusID(studyUID, seriesUID), message ->  {
-			// OHIF needs metadata in advance for images. We work around that by taking one image in the series
-			// and we extract their metadata.
-			String referenceInstanceUID = message.body().toString();
+		DicomInputStream dis = new DicomInputStream(new ByteArrayInputStream(kos.getRawData()));
+		Attributes attributes = dis.readDataset();
 
-			Attributes attributes;
-			try {
-				byte[] dicomFile = pacsCache.getDicomFile(studyUID, seriesUID, referenceInstanceUID).get();
-				DicomInputStream dis = new DicomInputStream(new ByteArrayInputStream(dicomFile));
-				attributes = dis.readDataset();
+		JsonObjectBuilder root = Json.createObjectBuilder();
+		JsonArrayBuilder studiesArray = Json.createArrayBuilder();
+		JsonArrayBuilder seriesArray = Json.createArrayBuilder();
+		JsonArrayBuilder instancesArray = Json.createArrayBuilder();
 
-			} catch (Exception e) {
-				Log.error("Can't get dicom file from cache.");
-				e.printStackTrace();
-				completableFuture.complete(Response.noContent().status(500).build());
-				return;
+		JsonObjectBuilder seriesObject = Json.createObjectBuilder();
+		seriesObject.add("SeriesInstanceUID", seriesUID);
+
+		String textValue = "";
+		for (Attributes sequence : attributes.getSequence(Tag.ContentSequence)) {
+			if(sequence.getString(Tag.ValueType).equals("TEXT")) {
+				textValue = sequence.getString(Tag.TextValue);
 			}
+		}
+		String modal = textValue.split("Série-")[1].split(" : ")[1].split(" ")[0];
 
-			JsonObjectBuilder root = Json.createObjectBuilder();
-			JsonArrayBuilder studiesArray = Json.createArrayBuilder();
-			JsonArrayBuilder seriesArray = Json.createArrayBuilder();
-			JsonArrayBuilder instancesArray = Json.createArrayBuilder();
+		for(Attributes currentSequence : attributes.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence).get(0).getSequence(Tag.ReferencedSeriesSequence)
+				.get(0).getSequence(Tag.ReferencedSOPSequence)) {
 
-			JsonObjectBuilder seriesObject = Json.createObjectBuilder();
-			seriesObject.add("SeriesInstanceUID", seriesUID);
+			JsonObjectBuilder metadata = Json.createObjectBuilder();
+			metadata.add("SOPInstanceUID", currentSequence.getString(Tag.ReferencedSOPInstanceUID));
 
+			metadata.add("SeriesInstanceUID", seriesUID);
+			metadata.add("StudyInstanceUID", attributes.getString(Tag.StudyInstanceUID));
 
-			// TODO : temporary until we can get this from the KOS
-			int instanceNumber = 0;
+			metadata.add("SOPClassUID", currentSequence.getString(Tag.ReferencedSOPClassUID));
+			metadata.add("Modality", modal);
+			metadata.add("INS", patientINS);
 
+			metadata.add("InstanceNumber", Integer.valueOf(currentSequence.getString(Tag.InstanceNumber)));
 
-			for(String currentInstanceUID : seriesInfo.instancesUID) {
-				Function<Integer, String> getStringField = (var tag) ->  attributes.getString(tag, "");
-				Function<Integer, Integer> getIntField = (var tag) -> attributes.getInt(tag, 0);
+			// Add to the instance list
+			instancesArray.add(Json.createObjectBuilder()
+					.add("metadata", metadata)
+					.add("url", "dicomweb:" + this.consoHost  +"/api/conso/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentSequence.getString(Tag.ReferencedSOPInstanceUID) )
+					);
+		}
 
-				JsonObjectBuilder metadata = Json.createObjectBuilder();
-				metadata.add("SOPInstanceUID", currentInstanceUID);
+		seriesObject.add("instances", instancesArray);
+		seriesObject.add("Modality", "CT");
+		seriesArray.add(seriesObject);
 
-				metadata.add("SeriesInstanceUID", getStringField.apply(Tag.SeriesInstanceUID));
-				metadata.add("StudyInstanceUID", getStringField.apply(Tag.StudyInstanceUID));
-				metadata.add("SOPClassUID", getStringField.apply(Tag.SOPClassUID));
-				metadata.add("Modality", getStringField.apply(Tag.Modality));
-				metadata.add("Columns", getIntField.apply(Tag.Columns));
-				metadata.add("Rows", getIntField.apply(Tag.Rows));
-				metadata.add("PixelRepresentation", getIntField.apply(Tag.PixelRepresentation));
-				metadata.add("BitsAllocated", getIntField.apply(Tag.BitsAllocated));
-				metadata.add("BitsStored", getIntField.apply(Tag.BitsStored));
-				metadata.add("SamplesPerPixel", getIntField.apply(Tag.SamplesPerPixel));
-				metadata.add("HighBit", getIntField.apply(Tag.HighBit));
-				metadata.add("PhotometricInterpretation", getStringField.apply(Tag.PhotometricInterpretation));
-				metadata.add("INS", patientINS);
+		JsonObjectBuilder study = Json.createObjectBuilder();
+		study.add("StudyInstanceUID", studyUID);
+		study.add("series", seriesArray);
+		study.add("NumInstances", seriesInfo.instancesUID.size());
 
+		study.add("StudyDate",  attributes.getString(Tag.StudyDate));
+		study.add("StudyTime", attributes.getString(Tag.StudyTime));
+		study.add("PatientName", attributes.getString(Tag.PatientName));
+		study.add("PatientID", attributes.getString(Tag.PatientID));
+		study.add("AccessionNumber", attributes.getSequence(Tag.ReferencedRequestSequence).get(0).getString(Tag.AccessionNumber));
+		study.add("PatientAge", attributes.getString(Tag.PatientAge, ""));
+		study.add("PatientSex", attributes.getString(Tag.PatientSex));
+		study.add("StudyDescription", attributes.getString(Tag.StudyDescription));
+		// TODO handle modalities (maybe not necessary ?)
+		study.add("Modalities", modal);
+		study.add("fullmetadataset", "no");
 
-				// TODO : handle instance number from KOS
-				metadata.add("InstanceNumber", instanceNumber++);
+		studiesArray.add(study);
 
+		root.add("studies", studiesArray);
+		String ohifMetadata = root.build().toString();
+		completableFuture.complete(Response.ok(ohifMetadata).build());
 
-				// Add to the instance list
-				instancesArray.add(Json.createObjectBuilder()
-						.add("metadata", metadata)
-						.add("url", "dicomweb:" + this.consoHost  +"/api/conso/" + DICOM_FILE_PREFIX + "/" + studyUID + "/" + seriesUID + "/" + currentInstanceUID )
-				);
-			}
-
-			seriesObject.add("instances", instancesArray);
-			seriesObject.add("Modality", "CT");
-			seriesArray.add(seriesObject);
-
-			JsonObjectBuilder study = Json.createObjectBuilder();
-			study.add("StudyInstanceUID", studyUID);
-			study.add("series", seriesArray);
-			study.add("NumInstances", seriesInfo.instancesUID.size());
-
-			study.add("StudyDate",  attributes.getString(Tag.StudyDate, "20000101"));
-			study.add("StudyTime", attributes.getString(Tag.StudyTime, ""));
-			study.add("PatientName", attributes.getString(Tag.PatientName, "Anonymous"));
-			study.add("PatientID", attributes.getString(Tag.PatientID, ""));
-			study.add("AccessionNumber", "");
-			study.add("PatientAge", attributes.getString(Tag.PatientAge, ""));
-			study.add("PatientSex", attributes.getString(Tag.PatientSex, ""));
-			study.add("StudyDescription", "");
-			// TODO handle modalities (maybe not necessary ?)
-			study.add("Modalities", attributes.getString(Tag.Modality, ""));
-
-			studiesArray.add(study);
-
-			root.add("studies", studiesArray);
-
-			String ohifMetadata = root.build().toString();
-			completableFuture.complete(Response.ok(ohifMetadata).build());
-
-		});
-
+		dis.close();
 
 		cacheFuture.onComplete(
 				entryAdded -> {
-			// We need to fire the event on the event bus ourselves since the data is already in the cache
-			if (entryAdded.succeeded() && entryAdded.result() == 0) {
-				vertx.eventBus().publish(PacsCache.getEventBusID(studyUID, seriesUID),
-						// We take the first instance ID of the series
-						pacsCache.getFirstInstanceNumber(studyUID, seriesUID)
-						// NOTE : we do not do something like this : seriesInfo.instancesUID.get(0) in case of missing images
-				);
-			// This should not happen, but it is here in a fail-case scenario
-			} else if (entryAdded.succeeded() && !completableFuture.isDone()) {
-				completableFuture.complete(Response.ok("Cache was created but JSON data is empty").status(500).build());
-				// If some images were not found on the pacs we mark them as not existing
-			} else if (entryAdded.succeeded() && entryAdded.result() != seriesInfo.instancesUID.size()) {
-				Log.warn("Some images seems to be missing in the pacs");
-				pacsCache.markInstanceAsNotFound(studyUID, seriesUID, seriesInfo.instancesUID);
-			}
-		});
+					// We need to fire the event on the event bus ourselves since the data is already in the cache
+					if (entryAdded.succeeded() && entryAdded.result() == 0) {
+						vertx.eventBus().publish(PacsCache.getEventBusID(studyUID, seriesUID),
+								// We take the first instance ID of the series
+								pacsCache.getFirstInstanceNumber(studyUID, seriesUID)
+								// NOTE : we do not do something like this : seriesInfo.instancesUID.get(0) in case of missing images
+								);
+						// This should not happen, but it is here in a fail-case scenario
+					} else if (entryAdded.succeeded() && !completableFuture.isDone()) {
+						completableFuture.complete(Response.ok("Cache was created but JSON data is empty").status(500).build());
+						// If some images were not found on the pacs we mark them as not existing
+					} else if (entryAdded.succeeded() && entryAdded.result() != seriesInfo.instancesUID.size()) {
+						Log.warn("Some images seems to be missing in the pacs");
+						pacsCache.markInstanceAsNotFound(studyUID, seriesUID, seriesInfo.instancesUID);
+					}
+				});
 
 		cacheFuture.onFailure(
 				e -> {
 					RequestErrorException exception = (RequestErrorException) e;
 					switch (exception.getErrorCode()) {
-						case 1404:
-							completableFuture.complete(Response.ok(e.getMessage()).status(404).build());
-							break;
-						case 404:
-							completableFuture.complete(Response.ok("Can't find image(s) on PACS. Maybe it was deleted ?").status(410).build());
-							break;
-						default:
-							completableFuture.complete(Response.ok(exception.getMessage()).status(exception.getErrorCode()).build());
+					case 1404:
+						completableFuture.complete(Response.ok(e.getMessage()).status(404).build());
+						break;
+					case 404:
+						completableFuture.complete(Response.ok("Can't find image(s) on PACS. Maybe it was deleted ?").status(410).build());
+						break;
+					default:
+						completableFuture.complete(Response.ok(exception.getMessage()).status(exception.getErrorCode()).build());
 					}
 				});
-
 		return Uni.createFrom().future(completableFuture);
 	}
 

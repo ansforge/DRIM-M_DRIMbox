@@ -1,1 +1,0 @@
-Ce répertoire contient un exemple de compte rendu d'imagerie au format CDA-R2 Niveau 1.  .

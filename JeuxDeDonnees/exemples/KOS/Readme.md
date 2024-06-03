@@ -1,1 +1,0 @@
-Ce répertoire contient un exemple de fichier KOS conforme au projet DRIM-M. 

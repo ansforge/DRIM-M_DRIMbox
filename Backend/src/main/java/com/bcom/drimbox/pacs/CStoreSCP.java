@@ -91,9 +91,9 @@ public class CStoreSCP {
 	private String config;
 
 	private List<String> ts;
-	
-	@ConfigProperty(name="test.ts")
-	Boolean tss;
+
+	@ConfigProperty(name="noconverion.ts")
+	Boolean noConvertTS;
 
 	@Inject
 	EventBus eventBus;
@@ -292,8 +292,6 @@ public class CStoreSCP {
 
 			pacsCacheSource.setInCache(input);
 		}
-
-
 	}
 
 	public String getHost() {
@@ -310,13 +308,16 @@ public class CStoreSCP {
 
 	private boolean checkTransferSyntax(String transferSyntax) {
 		boolean found = false;
-		Log.info(tss);
-		for (String tsAvailable : this.ts) {
-			if(Objects.equals(tsAvailable, transferSyntax)) {
-				found = true;
+		if(noConvertTS)
+			return noConvertTS;
+		else {
+
+			for (String tsAvailable : this.ts) {
+				if(Objects.equals(tsAvailable, transferSyntax)) {
+					found = true;
+				}
 			}
+			return found;
 		}
-		Log.info(found);
-		return tss;
 	}
 }

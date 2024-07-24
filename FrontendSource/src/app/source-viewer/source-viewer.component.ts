@@ -66,10 +66,8 @@ export class SourceViewerComponent implements OnInit {
         this.connected = false;
         this.display = true;
       }
-      else if (data.startsWith("connected but no structure : ")) {
-        this.askStructure();
-      }
-      else if (data === "connected") {
+
+      else {
         this.connected = true;
 
         if (localStorage.getItem('Remember') === "false" && this.studyUID !== "") {

@@ -3,7 +3,7 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.bcom</groupId>
-  <artifactId>DRIMboxSample</artifactId>
+  <artifactId>PoC-DRIMbox</artifactId>
   <version>1.0.0</version>
   <properties>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
@@ -257,6 +257,13 @@
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.3.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.7.0</version>
+        <configuration>
+        </configuration>
       </plugin>
     </plugins>
   </build>

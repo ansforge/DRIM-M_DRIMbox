@@ -49,8 +49,8 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import com.bcom.drimbox.DbMain;
-import com.bcom.drimbox.dmp.auth.WebTokenAuth;
+import com.bcom.drimbox.DRIMbox;
+import com.bcom.drimbox.auth.WebTokenAuth;
 import com.bcom.drimbox.psc.tokens.AccessToken;
 import com.bcom.drimbox.psc.tokens.IdToken;
 import com.bcom.drimbox.psc.tokens.RefreshToken;
@@ -72,10 +72,7 @@ public class ProSanteConnect {
 	WebTokenAuth webTokenAuth;
 
 	@Inject
-	DbMain dbMain;
-
-	@ConfigProperty(name="ris.host")
-	String risHost;
+	DRIMbox drimbox;
 
 	@ConfigProperty(name="conso.host")
 	String consoHost;
@@ -166,14 +163,11 @@ public class ProSanteConnect {
 
 			String redirectURI = "";
 
-			if(dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.SOURCE) {
+			if(drimbox.getType() == DRIMbox.DRIMboxMode.SOURCE) {
 				redirectURI = sourceHost + "/api-source/auth/redirect";
 			}
-			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.CONSO) {
+			else if (drimbox.getType() == DRIMbox.DRIMboxMode.CONSO) {
 				redirectURI = consoHost + "/api-conso/auth/redirect";
-			}
-			else if (dbMain.getTypeDrimbBOX() == DbMain.DrimBOXMode.RIS) {
-				redirectURI = risHost + "/api/auth/redirect";
 			}			
 			Log.info("code : " + code);
 			HttpClient httpclient = HttpClients.createDefault();

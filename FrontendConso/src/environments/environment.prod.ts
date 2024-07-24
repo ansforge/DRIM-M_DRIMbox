@@ -25,5 +25,5 @@
 
 export const environment = {
   production: true,
-  hostconso: 'https://vi1.test1.mesimagesmedicales.fr'
+  hostconso: 'http://localhost:4200'
 };

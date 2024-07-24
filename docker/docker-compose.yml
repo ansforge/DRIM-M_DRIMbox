@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Drimbox
+   drimbox-conso:
+    build:
+      context: ../Backend
+    ports:
+      - 8081:8081
+    environment:
+      DRIMBOX_MODE: conso
+      JAVA_OPTIONS: "-Dquarkus.http.port=8081"
+
+   drimbox-source:
+    build:
+      context: ../Backend
+    ports:
+      - 8082:8082
+      - 8084:8084
+      - 8090:8090
+    environment:
+      DRIMBOX_MODE: source
+      JAVA_OPTIONS: "-Dquarkus.http.port=8082 -Dpacs.baseUrl=http://dcm4chee-arc:8080"
+      XDM_PATH: /XDM
+    volumes:
+      - "./XDM:/XDM"
+
+   front-conso:
+    build:
+      context: ../FrontendConso
+    ports:
+      - 8086:8086
+
+   front-source:
+    build:
+      context: ../FrontendSource
+    ports:
+      - 8083:8083
+  
+   reverse-proxy:
+    build:
+      context: ../ReverseProxy
+    ports:
+      - 4200:4200
+
+   postgres:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pswd
+      POSTGRES_DB: postgres
+    volumes:
+      - drimbox-source-database:/var/lib/postgresql/data/
+
+
+   # Sample DCM4CHE
+   # Default address : http://localhost:8012/dcm4chee-arc/ui2/
+   dcm4chee-ldap:
+      container_name: ldap
+      image: dcm4che/slapd-dcm4chee:2.4.57-23.2
+
+   # DCM4CHEE uses this PostgreSQL database
+   dcm4chee-postgres:
+    container_name: pacspostgres
+    image: dcm4che/postgres-dcm4chee:13.1-23
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    environment:
+      POSTGRES_DB: pacsdb
+      POSTGRES_USER: pacs
+      POSTGRES_PASSWORD: pacs
+    volumes:
+      - dcm4chee-db-data:/var/lib/postgresql/data
+
+   # The main DCM4CHEE container
+   dcm4chee-arc:
+    image: dcm4che/dcm4chee-arc-psql:5.23.2
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+      - "9990:9990"
+      - "9993:9993"
+      - "11112:11112"
+      - "2762:2762"
+      - "2575:2575"
+      - "12575:12575"
+    environment:
+      POSTGRES_DB: pacsdb
+      POSTGRES_USER: pacs
+      POSTGRES_PASSWORD: pacs
+      STORAGE_DIR: /storage/fs1
+      POSTGRES_HOST: pacspostgres
+      WILDFLY_CHOWN: /storage /opt/wildfly/standalone
+      WILDFLY_WAIT_FOR: ldap:389 pacspostgres:5432
+      JAVA_OPTS: -Xms256m -Xmx1024m -XX:MetaspaceSize=960M -XX:MaxMetaspaceSize=2560m -Djava.net.preferIPv4Stack=true
+    depends_on:
+      - dcm4chee-ldap
+      - dcm4chee-postgres
+    volumes:
+      - dcm4chee-arc-wildfly:/opt/wildfly/standalone
+      - dcm4chee-arc-storage:/storage
+  
+volumes:
+  dcm4chee-db-data:
+  dcm4chee-arc-wildfly:
+  dcm4chee-arc-storage:
+  drimbox-source-database:

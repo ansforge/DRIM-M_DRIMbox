@@ -1,5 +1,5 @@
 /*
- *  XadesRequest.java - DRIMBox
+ *  BaseXadesRequest.java - DRIMBox
  *
  * MIT License
  *
@@ -23,31 +23,23 @@
  * SOFTWARE.
  */
 
-package com.bcom.drimbox.xades;
+package com.bcom.drimbox.dmp.request.signed;
 
-import com.bcom.drimbox.dmp.request.signed.ProvideAndRegisterRequest;
-import com.bcom.drimbox.document.CDAFile;
-import com.bcom.drimbox.document.KOSFile;
+import com.bcom.drimbox.dmp.request.BaseRequest;
 
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
+public abstract class BaseXadesRequest extends BaseRequest {
+    @Override
+    protected void initEnvelope() {
+        envelope = soapRequest.createElement("soap:Envelope");
+        envelope.setAttribute("xmlns:urn", "urn:hl7-org:v3");
+        envelope.setAttribute("xmlns:soap", "http://www.w3.org/2003/05/soap-envelope");
 
-import java.io.File;
+        soapRequest.appendChild(envelope);
+    }
 
-import static com.bcom.drimbox.xades.CDAParsing.CDA_TEST_FILE;
 
-@QuarkusTest
-public class XadesRequest {
+    public abstract String getContentType();
+    public abstract int getContentLength();
 
-	@Test
-	public void testRequest() {
-		CDAFile c = new CDAFile(new File(ClassLoader.getSystemResource(CDA_TEST_FILE).getPath()));
-		KOSFile k = new KOSFile(new File(ClassLoader.getSystemResource("kos.dcm").getPath()));
-		try {
-			ProvideAndRegisterRequest r = new ProvideAndRegisterRequest(c, k);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
+
 }

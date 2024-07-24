@@ -92,7 +92,6 @@ public abstract class BaseRequest {
 
 
 	// Field definition
-	// TODO : Maybe an enum ?
 	protected static final String FIELD_CODE_PROFESSION = "codeProfession";
 	protected static final String FIELD_CODE_SAVOIR_FAIRE = "codeSavoirFaire";
 	protected static final String FIELD_ACTIVITIES = "activities";
@@ -321,7 +320,7 @@ public abstract class BaseRequest {
 
 		vihf.setPurposeOfUse(new VIHFBase.CommonVIHFAttribute("normal", "1.2.250.1.213.1.1.4.248", "mode acces VIHF 1.0", "Acces normal"));
 
-		vihf.build(); // TODO : check return value
+		vihf.build();
 		//vihf.exportVIHFToXML("opensml-notsigned.xml");
 		vihf.sign();
 		//vihf.exportVIHFToXML("opensml-signed.xml");
@@ -369,7 +368,7 @@ public abstract class BaseRequest {
 
 		vihf.setPurposeOfUse(new VIHFBase.CommonVIHFAttribute("normal", "1.2.250.1.213.1.1.4.248", "mode acces VIHF 1.0", "Acces normal"));
 
-		vihf.build(); // TODO : check return value
+		vihf.build();
 		//vihf.exportVIHFToXML("opensml-notsigned.xml");
 		vihf.sign();
 		//vihf.exportVIHFToXML("opensml-signed.xml");

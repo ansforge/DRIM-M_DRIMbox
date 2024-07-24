@@ -59,9 +59,12 @@ public class CFindSCU {
 	
 	@ConfigProperty(name = "dmp.retrieveURL")
 	String retrieveURL;
+	
+	@ConfigProperty(name = "source.host")
+	String sourcehost;
 
 	//private String retrieveUrl = "http://demodrim.labs.b-com.com/drimbox/studies/";
-	private String retrieveUrl = "http://localhost:4200/api/source/studies/";
+	private String retrieveUrl = this.sourcehost + "/api/source/studies/";
 
 	// Parameters to access pacs from application.properties
 	String callingAET = ConfigProvider.getConfig().getValue("dcm.cmove.callingAET", String.class);
@@ -234,6 +237,8 @@ public class CFindSCU {
 					Attributes attrsReferencedSop = new Attributes();
 					attrsReferencedSop.setString(Tag.ReferencedSOPClassUID, VR.UI, data.getString(Tag.SOPClassUID));
 					attrsReferencedSop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, data.getString(Tag.SOPInstanceUID));
+					attrsReferencedSop.setString(Tag.InstanceNumber, VR.IS, data.getString(Tag.InstanceNumber));
+					attrsReferencedSop.setString(Tag.NumberOfFrames, VR.IS, data.getString(Tag.NumberOfFrames));
 					ReferencedSOPSequence.add(attrsReferencedSop);
 				}
 

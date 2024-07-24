@@ -27,7 +27,6 @@
 
 package com.bcom.drimbox.utils.exceptions;
 
-// TODO : maybe merge with RequestErrorException
 public class WadoErrorException extends RuntimeException {
     int errorCode;
     public WadoErrorException(String errorMessage, int errorCode) {

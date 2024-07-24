@@ -57,8 +57,8 @@ import org.dcm4che3.net.pdu.AAssociateRQ;
 import org.dcm4che3.net.pdu.PresentationContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import com.bcom.drimbox.dmp.database.DatabaseManager;
-import com.bcom.drimbox.dmp.database.SourceEntity;
+import com.bcom.drimbox.database.DatabaseManager;
+import com.bcom.drimbox.database.SourceEntity;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
@@ -145,7 +145,6 @@ public class CMoveSCU {
 					promise.complete();
 				}, res -> {
 					if (res.failed()) {
-						// TODO : handle this better
 						Log.error("Unexpected error : " + res);
 						eventBus.publish(EB_DONE_ADDRESS, true);
 					} else {

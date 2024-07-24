@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  hostsource: 'https://vi1.test1.mesimagesmedicales.fr'
+  hostsource: 'http://localhost:4200'
 };
 
 /*

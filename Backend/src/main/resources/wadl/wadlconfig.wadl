@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <application xmlns="http://wadl.dev.java.net/2009/02">
-  <doc xml:lang="en" title="DRIMboxSample API"/>
+  <doc xml:lang="en" title="PoC DRIMbox API"/>
   <resources base="">
     <resource path="api/source/studies/{studyUID}/series/{seriesUID}" id="/api/source/studies/{studyUID}/series/{seriesUID}">
       <doc xml:lang="en" title="/api/source/studies/{studyUID}/series/{seriesUID}"/>

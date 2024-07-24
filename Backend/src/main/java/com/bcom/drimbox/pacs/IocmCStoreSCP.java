@@ -55,7 +55,7 @@ import org.dcm4che3.net.service.BasicCStoreSCP;
 import org.dcm4che3.net.service.DicomServiceRegistry;
 import org.dcm4che3.util.StreamUtils;
 
-import com.bcom.drimbox.api.DmpAPI;
+import com.bcom.drimbox.api.conso.DmpAPI;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -154,7 +154,6 @@ public class IocmCStoreSCP {
 			try {
 				dmpAPI.updateKOS(studyInstanceUID);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		});

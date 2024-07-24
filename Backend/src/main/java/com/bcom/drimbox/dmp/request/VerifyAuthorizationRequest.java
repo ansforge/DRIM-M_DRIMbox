@@ -33,13 +33,11 @@ public class VerifyAuthorizationRequest extends BaseRequest {
 
 	@Override
 	protected String actionName() {
-		// TODO var-generated method stub
 		return "urn:hl7-org:v3:PRPA_IN201307UV02";
 	}
 
 	@Override
 	protected String serviceName() {
-		// TODO var-generated method stub
 		return "patients";
 	}
 

@@ -81,7 +81,6 @@ public class VIHF extends VIHFBase {
 
 
     public VIHF() {
-        // TODO : It should be done only once
         // Without it it doesn't find builder classes
         try {
             DefaultBootstrap.bootstrap();
@@ -347,7 +346,6 @@ public class VIHF extends VIHFBase {
     public Boolean build() {
         buildAssertionFields();
         buildVIHFFields();
-        // TODO : check if all mandatory fields are set
 
         marshallIntoXML();
         return true;

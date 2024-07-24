@@ -25,8 +25,9 @@
 
 package com.bcom.drimbox.xades;
 
-import com.bcom.drimbox.dmp.xades.file.CDAFile;
 import org.junit.jupiter.api.Test;
+
+import com.bcom.drimbox.document.CDAFile;
 
 import java.io.File;
 

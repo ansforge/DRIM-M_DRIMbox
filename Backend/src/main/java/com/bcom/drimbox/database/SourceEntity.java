@@ -1,5 +1,7 @@
 /*
- *  XadesRequest.java - DRIMBox
+ *  KOSEntry.java - DRIMBox
+ *
+ * N°IDDN : IDDN.FR.001.020012.000.S.C.2023.000.30000
  *
  * MIT License
  *
@@ -23,31 +25,28 @@
  * SOFTWARE.
  */
 
-package com.bcom.drimbox.xades;
+package com.bcom.drimbox.database;
 
-import com.bcom.drimbox.dmp.request.signed.ProvideAndRegisterRequest;
-import com.bcom.drimbox.document.CDAFile;
-import com.bcom.drimbox.document.KOSFile;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 
-import java.io.File;
+/**
+ * Entity stored in the daabase: StudyInstanceUID, idCDA, IPP, KOS, CDA and XDS Metadata
+ * 
+ */
+@Entity
+public class SourceEntity extends PanacheEntityBase {
+    @Id
+    public String studyUID;
 
-import static com.bcom.drimbox.xades.CDAParsing.CDA_TEST_FILE;
+    public String cdaID;
+    public String ipp;
 
-@QuarkusTest
-public class XadesRequest {
+    public byte[] rawKOS;
+    public byte[] rawCDA;
+    public byte[] signDOC;
 
-	@Test
-	public void testRequest() {
-		CDAFile c = new CDAFile(new File(ClassLoader.getSystemResource(CDA_TEST_FILE).getPath()));
-		KOSFile k = new KOSFile(new File(ClassLoader.getSystemResource("kos.dcm").getPath()));
-		try {
-			ProvideAndRegisterRequest r = new ProvideAndRegisterRequest(c, k);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
+    public byte[] rawMetadata;
 }

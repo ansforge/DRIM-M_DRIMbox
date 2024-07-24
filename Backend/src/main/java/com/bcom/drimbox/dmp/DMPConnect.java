@@ -28,8 +28,9 @@
 package com.bcom.drimbox.dmp;
 
 import com.bcom.drimbox.dmp.request.BaseRequest;
+import com.bcom.drimbox.dmp.request.signed.BaseXadesRequest;
 import com.bcom.drimbox.dmp.security.DMPKeyStore;
-import com.bcom.drimbox.dmp.xades.request.BaseXadesRequest;
+
 import io.quarkus.logging.Log;
 
 import jakarta.inject.Inject;

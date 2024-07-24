@@ -8,7 +8,7 @@ Prérequis :
 - [Maven](https://maven.apache.org/install.html)
 
 
-## Compilation
+## Compilation et lancement
 
 ```bash
 ./mvnw compile quarkus:dev
@@ -42,3 +42,22 @@ L'outil est alors disponible aux urls suivantes (via un appel contextuel POST co
 
  Les différents paramètres passés lors de l'appel POST sont finalement accessibles via l'url de la forme `http://demodrim.labs.b-com.com/drim/show?uuid=...` indiqué dans la réponse du POST.
 
+
+## Code
+
+L'outil comprend 4 fichiers:
+- ./src/main/java/appelContextuel/ParameterList.java : Définit les 2 services "/drim/302" et "/drim/303" et les paramètres supportés
+- ./src/main/java/appelContextuel/DisplayPage.java : Définit le service "/drim/show" avec la page html à afficher présentant les paramètres passés lors du POST. 
+- ./src/main/resources/templates/template.html : Template html utilisé par le service "drim/show"
+- ./src/main/resources/application.properties : fichier de configuration pour définir certaines variables, notamment la variable contenant le nom d'hôte du serveur.
+
+L'outil ne fait pas de contrôle de format ou de cohérence aujourd'hui sur les valeurs passées lors de l'appel. 
+En revanche, il vérifie que la valeur associée à un paramètre obligatoire n'est pas nulle.
+
+## FAQ
+
+- Que faire pour ajouter/modifier/supprimer un paramètre ?
+  
+  Ajouter/modifier/supprimer le paramètre dans la variable "paramsAll" au début du fichier "ParameterList.java".
+  S'il s'agit d'un paramètre obligatoire, modifier également la variable "paramsMandatory".
+  Il n'y a pas d'autres modifications à faire, la page d'affichage des résultats prendra automatiquement en compte les modifications.

@@ -28,11 +28,10 @@ public class ParameterList {
 	private final Map<String, Map<String, String>> paramsCache = new HashMap<>();
 
 	private String[] paramsMandatory = {"patient.identifier.value", "patient.identifier.system", "patient.name.family", "patient.name.given", "patient.gender", 
-			"patient.birthdate", "address.district", "informationetoppositionconsultation", "patientid", "patientidissuer"};  
+			"patient.birthdate", "address.district", "informationetconsentement", "patientid", "patientidissuer"};  
 
 	private String[] paramsAll = {"patient.identifier.value", "patient.identifier.system", "patient.name.family", "patient.name.given", "patient.gender", 
-			"patient.birthdate", "address.district", "informationetoppositionconsultation", "patientid", "patientidissuer", 
-			"studyinstanceuid", "modality", "accessionnumber", "accessionnumberissuer", "studydate", "anatomicregion", "situation"};
+			"patient.birthdate", "address.district", "informationetconsentement", "patientid", "patientidissuer", "situation"};
 
 	@ConfigProperty(name = "server.hostname")
 	String hostname;

@@ -27,12 +27,11 @@ public class ParameterList {
 	// Map cache with uuid and query parameters associated 
 	private final Map<String, Map<String, String>> paramsCache = new HashMap<>();
 
-	private String[] paramsMandatory = {"patient.identifier.value", "patient.identifier.system", "patient.name.family", "patient.name.given", "patient.gender", 
-			"patient.birthdate", "address.district", "informationetoppositionconsultation", "patientid", "patientidissuer"};  
+	private String[] paramsMandatory = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
+			"Patient.birthDate", "Address.district", "InformationEtConsentement", "PatientID", "PatientIDIssuer"};  
 
-	private String[] paramsAll = {"patient.identifier.value", "patient.identifier.system", "patient.name.family", "patient.name.given", "patient.gender", 
-			"patient.birthdate", "address.district", "informationetoppositionconsultation", "patientid", "patientidissuer", 
-			"studyinstanceuid", "modality", "accessionnumber", "accessionnumberissuer", "studydate", "anatomicregion", "situation"};
+	private String[] paramsAll = {"Patient.identifier.value", "Patient.identifier.system", "Patient.name.family", "Patient.name.given", "Patient.gender", 
+			"Patient.birthDate", "Address.district", "InformationEtConsentement", "PatientID", "PatientIDIssuer", "Situation"};
 
 	@ConfigProperty(name = "server.hostname")
 	String hostname;
@@ -62,14 +61,14 @@ public class ParameterList {
 				return Response.status(400, "parameters without value : " + pair).build();
 			}
 
-			validParams = this.verifExist(keyValuePair[0].toLowerCase()); 
+			validParams = this.verifExist(keyValuePair[0]); 
 			if (!validParams) {
-				Log.info("unknown parameter found : " + keyValuePair[0].toLowerCase());
-				return Response.status(400, "unknown parameter found : " + keyValuePair[0].toLowerCase()).build();
+				Log.info("unknown parameter found : " + keyValuePair[0]);
+				return Response.status(400, "unknown parameter found : " + keyValuePair[0]).build();
 			}
 
 			// Adding query params in local map
-			queryParams.put(keyValuePair[0].toLowerCase(), URLDecoder.decode(keyValuePair[1], "UTF-8"));
+			queryParams.put(keyValuePair[0], URLDecoder.decode(keyValuePair[1], "UTF-8"));
 		}
 		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
 		Date date = new Date();  
@@ -121,14 +120,14 @@ public class ParameterList {
 				return Response.status(400, "parameters without value : " + pair).build();
 			}
 
-			validParams = this.verifExist(keyValuePair[0].toLowerCase()); 
+			validParams = this.verifExist(keyValuePair[0]); 
 			if (!validParams) {
-				Log.info("unknown parameter found : " + keyValuePair[0].toLowerCase());
-				return Response.status(400, "unknown parameter found : " + keyValuePair[0].toLowerCase()).build();
+				Log.info("unknown parameter found : " + keyValuePair[0]);
+				return Response.status(400, "unknown parameter found : " + keyValuePair[0]).build();
 			}
 
 			// Adding query params in local map
-			queryParams.put(keyValuePair[0].toLowerCase(), URLDecoder.decode(keyValuePair[1], "UTF-8"));
+			queryParams.put(keyValuePair[0], URLDecoder.decode(keyValuePair[1], "UTF-8"));
 		}
 
 		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  

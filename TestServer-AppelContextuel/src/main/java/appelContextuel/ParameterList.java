@@ -145,8 +145,8 @@ public class ParameterList {
 			}
 		}  
 
-		return Response //seeOther = 303 redirect
-				.status(302).contentLocation(UriBuilder.fromUri(hostname + "/drim/show").queryParam("uuid", uuid.toString()).build()).build();
+		return Response
+				.status(302).location(UriBuilder.fromUri(hostname + "/drim/show").queryParam("uuid", uuid.toString()).build()).build();
 
 	}
 
